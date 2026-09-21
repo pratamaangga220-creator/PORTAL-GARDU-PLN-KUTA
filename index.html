@@ -5026,7 +5026,29 @@ function rtFmtDT(iso){
 }
 
 /* ---------------- Sumber data & indeks bantu (dari PORTAL_STATE) ---------------- */
-function rtBebanList(){ var st = window.PORTAL_STATE; return (st && st.beban) ? st.beban : []; }
+function rtBebanListRaw(){ var st = window.PORTAL_STATE; return (st && st.beban) ? st.beban : []; }
+/* Daftar kelas aset (PERKOTAAN/VIP/PEDESAAN/...) yang benar-benar ada di
+   data gardu saat ini — dipakai buat isi dropdown filter kelas aset. */
+function rtAvailableKelasList(){
+  var set = {};
+  rtBebanListRaw().forEach(function(g){ if(g && g.kelas) set[g.kelas] = true; });
+  return Object.keys(set).sort();
+}
+/* RT_ACTIVE_KELAS_FILTER: null/undefined = semua kelas aset diikutkan
+   (default, juga otomatis mengikutkan kelas baru kalau sheet-nya bertambah
+   kelas baru nanti). Array = cuma kelas yang disebut yang boleh jadi
+   kandidat/masuk rantai manajemen. Ini HANYA membatasi gardu yang dipakai
+   sebagai kandidat rantai — tab GARDU/USULAN dsb tetap menampilkan semua
+   gardu apa adanya, tidak ikut kefilter. */
+var RT_ACTIVE_KELAS_FILTER = null;
+function rtBebanList(){
+  var list = rtBebanListRaw();
+  var allowed = RT_ACTIVE_KELAS_FILTER;
+  if(!allowed) return list; // null = tidak difilter, semua kelas ikut
+  var set = {};
+  allowed.forEach(function(k){ set[k] = true; });
+  return list.filter(function(g){ return g && set[g.kelas]; });
+}
 function rtRealisasiIndex(){
   var st = window.PORTAL_STATE;
   var idx = {};
@@ -5334,6 +5356,35 @@ function rtMarkNodeSelesai(data, chain, seqNum){
   chain.history.push({ at:chain.updatedAt, text:'Node #' + seqNum + ' (' + node.noGardu + ') ditandai SELESAI (terealisasi di lapangan).' });
   rtSave(data);
 }
+/* Membatalkan SATU node/langkah (bukan seluruh rantai) — dipakai kalau
+   pekerjaan di lokasi itu ternyata tidak bisa dilaksanakan (mis. gardu
+   tidak bisa diakses, data di lapangan beda, dsb). Cuma node TERAKHIR
+   yang boleh dibatalkan supaya urutan rantai tetap konsisten — kalau
+   ada node setelahnya, itu harus dibatalkan/diselesaikan dulu. Rantai
+   otomatis ditandai TERPUTUS supaya pengguna diarahkan pakai "Ganti
+   Trafo" (atau mulai rantai baru) untuk melanjutkan dari titik ini.
+   Node yang dibatalkan TETAP tersimpan (bukan dihapus) supaya histori
+   perencanaan tidak hilang. */
+function rtCancelNode(data, chain, seqNum, alasan){
+  var node = chain.nodes.find(function(n){ return n.sequence === seqNum; });
+  if(!node) return { ok:false, reason:'Node tidak ditemukan.' };
+  if(node.statusPekerjaan === 'SELESAI') return { ok:false, reason:'Node ini sudah SELESAI direalisasikan, tidak bisa dibatalkan.' };
+  if(node.statusPekerjaan === 'DIBATALKAN') return { ok:false, reason:'Node ini sudah dibatalkan sebelumnya.' };
+  var lastNode = chain.nodes[chain.nodes.length - 1];
+  if(!lastNode || lastNode.sequence !== seqNum){
+    return { ok:false, reason:'Cuma node/langkah TERAKHIR dalam rantai yang bisa dibatalkan, supaya urutan rantai tetap konsisten.' };
+  }
+  var now = new Date().toISOString();
+  node.statusPekerjaan = 'DIBATALKAN';
+  if(alasan){
+    node.catatan = node.catatan ? (node.catatan + ' | Dibatalkan: ' + alasan) : ('Dibatalkan: ' + alasan);
+  }
+  chain.status = 'TERPUTUS';
+  chain.updatedAt = now;
+  chain.history.push({ at:now, text:'Node #' + seqNum + ' (' + node.noGardu + ') ditandai BATAL/TIDAK BISA' + (alasan ? (' — ' + alasan) : '') + '. Rantai terhenti di titik ini.' });
+  rtSave(data);
+  return { ok:true };
+}
 function rtCancelChain(data, chain){
   chain.status = 'DIBATALKAN';
   chain.updatedAt = new Date().toISOString();
@@ -5505,6 +5556,20 @@ window.PORTAL_CSS_RANTAI = "\n" +
 ".mp-item .qty{font-size:11px;color:var(--text-dim);font-weight:700;}\n" +
 ".mp-item .sp{flex:1;}\n" +
 ".mp-empty{padding:22px 10px;text-align:center;color:var(--text-faint);font-size:12.5px;background:var(--panel-2);border-radius:14px;border:1px dashed var(--border);margin-bottom:16px;}\n" +
+".mp-tabs{display:flex;gap:6px;margin:2px 0 12px;border-bottom:1px solid var(--border-soft);}\n" +
+".mp-tab{appearance:none;border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:12px;font-weight:800;color:var(--text-faint);padding:8px 4px 10px;margin-bottom:-1px;border-bottom:2px solid transparent;display:flex;align-items:center;gap:6px;}\n" +
+".mp-tab:hover{color:var(--text-dim);}\n" +
+".mp-tab.active{color:var(--teal-800);border-bottom-color:var(--teal-700);}\n" +
+".mp-tab .cnt{background:var(--panel-2);color:var(--text-dim);border-radius:20px;padding:1px 7px;font-size:10px;font-weight:800;}\n" +
+".mp-tab.active .cnt{background:var(--teal-tint);color:var(--teal-800);}\n" +
+".mp-item.usedext{opacity:.85;}\n" +
+".rt-kelasfilter{position:relative;display:inline-block;}\n" +
+".rt-kelasfilter-panel{position:absolute;top:calc(100% + 6px);left:0;z-index:40;background:var(--panel);border:1px solid var(--border);border-radius:13px;box-shadow:0 14px 32px rgba(11,30,61,.16);padding:12px;min-width:220px;}\n" +
+".rt-kelasfilter-head{font-size:10.5px;font-weight:800;color:var(--text-faint);text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px;}\n" +
+".rt-kelasfilter-item{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:var(--text);padding:5px 2px;cursor:pointer;}\n" +
+".rt-kelasfilter-item input{width:15px;height:15px;cursor:pointer;}\n" +
+".rt-kelasfilter-actions{display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border-soft);}\n" +
+".rt-kelasfilter-actions .btn{flex:1;justify-content:center;padding:5px 6px;font-size:10.5px;}\n" +
 ".rt-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap;}\n" +
 ".rt-badge.draft{background:var(--panel-2);color:var(--text-dim);}\n" +
 ".rt-badge.aktif{background:var(--aman-dim);color:var(--aman);}\n" +
@@ -5542,6 +5607,10 @@ window.PORTAL_CSS_RANTAI = "\n" +
 ".rt-mini b{font-size:12.5px;color:var(--text);font-weight:700;}\n" +
 ".rt-node .actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px;align-items:center;}\n" +
 ".rt-node select{padding:6px 9px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:11.5px;background:#fff;}\n" +
+".rt-node.cancelled{opacity:.72;background:#F7F4F1;}\n" +
+".rt-node-catatan{display:flex;flex-direction:column;gap:4px;font-size:10px;font-weight:800;color:var(--text-faint);text-transform:uppercase;letter-spacing:.03em;margin-bottom:2px;}\n" +
+".rt-node-catatan input{font-family:inherit;text-transform:none;letter-spacing:normal;font-weight:500;font-size:12px;color:var(--text);padding:7px 10px;border:1px solid var(--border);border-radius:9px;background:#fff;}\n" +
+".rt-node-catatan input:focus{outline:none;border-color:var(--teal-500);box-shadow:0 0 0 3px var(--teal-tint);}\n" +
 ".rt-lasttrafo{background:var(--teal-tint);border:1px solid var(--teal-500);border-radius:13px;padding:14px 16px;margin-top:10px;}\n" +
 ".rt-lasttrafo .lbl{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--teal-800);}\n" +
 ".rt-lasttrafo .val{font-size:19px;font-weight:800;margin-top:5px;}\n" +
@@ -5591,11 +5660,24 @@ window.renderRantaiPage = function(){
   pagecss.textContent = window.PORTAL_CSS_RANTAI;
 
   var data = rtLoad();
+  RT_ACTIVE_KELAS_FILTER = data.kelasFilter || null;
   var ui = {
     selectedPetugas: data.petugasList.length ? data.petugasList[0].id : null,
     filterPetugas:'SEMUA', filterDaya:'SEMUA', filterStatus:'SEMUA', filterPenyulang:'',
-    modal: null /* {mode:'sim'|'ganti'|'editmodal'|'addpetugas', ...payload} */
+    modal: null, /* {mode:'sim'|'ganti'|'editmodal'|'addpetugas', ...payload} */
+    materialTab: 'stok', /* 'stok' (belum terpasang) atau 'histori' (sudah terpasang) di popup Stok */
+    kelasFilterOpen: false /* dropdown "Kelas Aset" di filter bar sedang kebuka atau tidak */
   };
+
+  /* Ganti kelas aset yang boleh masuk sebagai kandidat rantai manajemen.
+     null = semua kelas (tidak difilter). Disimpan di data.kelasFilter
+     supaya ikut tersinkron ke Google Sheets & tetap ada setelah reload. */
+  function setKelasFilter(arrOrNull){
+    data.kelasFilter = arrOrNull;
+    RT_ACTIVE_KELAS_FILTER = arrOrNull;
+    rtSave(data);
+  }
+  var kelasOutsideListenerAttached = false;
 
   function refIndexForPetugas(petugas){
     return { realIdx: rtRealisasiIndex(), locked: rtLockedGarduSet(data, null), petugas: petugas };
@@ -5615,7 +5697,7 @@ window.renderRantaiPage = function(){
       var chain = rtActiveChain(data, p);
       var modal = data.trafoModal[p];
       var activeItem = rtModalActive(modal);
-      var stokCount = rtModalItems(modal).filter(function(it){ return it.id !== modal.activeId; }).length;
+      var stokCount = rtModalItems(modal).filter(function(it){ return it.id !== modal.activeId && it.status !== 'TERPASANG'; }).length;
       var jumlahNode = chain ? chain.nodes.length : 0;
       var statusMeta = chain ? rtChainStatusMeta(chain.status) : ['BELUM ADA RANTAI','draft'];
       var terakhir = chain ? (chain.currentTransformer.noGardu ? ('Keluar dari ' + esc(chain.currentTransformer.noGardu)) : 'Trafo modal (belum dipakai)') : '\u2013';
@@ -5689,6 +5771,30 @@ window.renderRantaiPage = function(){
       '</div>';
   }
 
+  function kelasFilterHtml(){
+    var avail = rtAvailableKelasList();
+    if(!avail.length) return '';
+    var allowedArr = data.kelasFilter; // null = semua
+    var isChecked = function(k){ return !allowedArr || allowedArr.indexOf(k) !== -1; };
+    var checkedCount = avail.filter(isChecked).length;
+    var label = !allowedArr || checkedCount === avail.length
+      ? 'Kelas Aset: Semua'
+      : (checkedCount === 0 ? 'Kelas Aset: Tidak ada' : ('Kelas Aset: ' + avail.filter(isChecked).join(', ')));
+    var itemsHtml = avail.map(function(k){
+      return '<label class="rt-kelasfilter-item"><input type="checkbox" data-kelasopt="' + esc(k) + '"' + (isChecked(k) ? ' checked' : '') + '> ' + esc(k) + '</label>';
+    }).join('');
+    return '<div class="rt-kelasfilter">' +
+      '<button class="btn small" id="rtKelasFilterBtn" type="button">' + esc(label) + ' \u25be</button>' +
+      (ui.kelasFilterOpen ? ('<div class="rt-kelasfilter-panel" id="rtKelasFilterPanel">' +
+        '<div class="rt-kelasfilter-head">Kelas aset yang masuk rantai manajemen</div>' +
+        itemsHtml +
+        '<div class="rt-kelasfilter-actions">' +
+        '<button class="btn small" id="rtKelasSelAll" type="button">Pilih Semua</button>' +
+        '<button class="btn small" id="rtKelasSelNone" type="button">Kosongkan</button>' +
+        '</div></div>') : '') +
+      '</div>';
+  }
+
   function filterBarHtml(){
     function opt(list, cur){ return list.map(function(v){ return '<option value="' + v[0] + '"' + (v[0]===cur?' selected':'') + '>' + v[1] + '</option>'; }).join(''); }
     var petugasOpts = [['SEMUA','SEMUA']].concat(data.petugasList.map(function(pl){ return [pl.id, pl.name]; }));
@@ -5697,17 +5803,27 @@ window.renderRantaiPage = function(){
       '<select id="rtFDaya">' + opt(['SEMUA'].concat(RT_LADDER.map(String)).map(function(v){return [v,v];}), ui.filterDaya) + '</select>' +
       '<select id="rtFStatus">' + opt(['SEMUA','DRAFT','AKTIF','DALAM PELAKSANAAN','TERPUTUS','SELESAI','DIBATALKAN'].map(function(v){return [v,v];}), ui.filterStatus) + '</select>' +
       '<input type="text" id="rtFPenyulang" placeholder="Cari penyulang\u2026" value="' + esc(ui.filterPenyulang) + '">' +
+      kelasFilterHtml() +
       '<button class="btn small" id="rtDownloadJadwal">\u2193 Unduh Jadwal (.txt)</button>' +
       '<span class="result-count" id="rtResultCount"></span>' +
       '</div>';
   }
 
   function nodeCardHtml(chain, node, isLast){
-    var mgmt = rtMgmtStatus(node.pctAfter, node.transformerStatus);
+    var isCancelled = node.statusPekerjaan === 'DIBATALKAN';
+    var isSelesai = node.statusPekerjaan === 'SELESAI';
+    var mgmt = isCancelled ? ['\u2715 DIBATALKAN', 'batal'] : rtMgmtStatus(node.pctAfter, node.transformerStatus);
     var kondisiOptions = ['<option value="">Pilih kondisi\u2026</option>'].concat(RT_KONDISI_KELUAR.map(function(k){
       return '<option value="' + k + '"' + (node.transformerStatus===k?' selected':'') + '>' + k + '</option>';
     })).join('');
-    return '<div class="rt-node">' +
+    var kondisiHtml = isCancelled ? '' :
+      (node.transformerStatus ? ('<span class="rt-badge ' + (node.transformerStatus==='LAYAK PAKAI'?'aktif':(node.transformerStatus==='CACAT / BOCOR'||node.transformerStatus==='TIDAK LAYAK'?'putus':'proses')) + '">Kondisi keluar: ' + esc(node.transformerStatus) + '</span>')
+        : ('<select data-act="kondisi" data-seq="' + node.sequence + '">' + kondisiOptions + '</select>'));
+    var selesaiBtnHtml = isCancelled ? '<span class="rt-badge batal">\u2715 Dibatalkan, tidak dilaksanakan</span>' :
+      (isSelesai ? '<span class="rt-badge selesai">\u2713 Sudah direalisasikan</span>'
+        : ('<button class="btn primary small" data-act="selesai" data-seq="' + node.sequence + '">Selesai &amp; Upload Realisasi</button>' +
+           (isLast ? ('<button class="btn small danger" data-act="batalnode" data-seq="' + node.sequence + '">Batal / Tidak Bisa</button>') : '')));
+    return '<div class="rt-node' + (isCancelled ? ' cancelled' : '') + '">' +
       '<div class="hd">' +
       '<div><div class="gnum">#' + node.sequence + ' \u00b7 ' + esc(node.noGardu) + '</div>' +
       '<div class="sub">' + esc(node.penyulang || '\u2013') + ' \u00b7 ' + esc(node.alamat || '\u2013') + ' \u00b7 ' + rtFmtTgl(node.tanggal) + (node.carriedByName ? (' \u00b7 ' + esc(node.carriedByName)) : '') + '</div></div>' +
@@ -5721,10 +5837,10 @@ window.renderRantaiPage = function(){
       '<span class="rt-mini">Trafo keluar<b>' + rtFmtKva(node.dayaKeluar) + '</b></span>' +
       '<span class="rt-mini">Status pekerjaan<b>' + esc(node.statusPekerjaan) + '</b></span>' +
       '</div>' +
+      '<label class="rt-node-catatan">Keterangan<input type="text" data-act="catatan" data-seq="' + node.sequence + '" placeholder="Catatan/keterangan untuk node ini (opsional)\u2026" value="' + esc(node.catatan || '') + '"></label>' +
       '<div class="actions">' +
-      (node.transformerStatus ? ('<span class="rt-badge ' + (node.transformerStatus==='LAYAK PAKAI'?'aktif':(node.transformerStatus==='CACAT / BOCOR'||node.transformerStatus==='TIDAK LAYAK'?'putus':'proses')) + '">Kondisi keluar: ' + esc(node.transformerStatus) + '</span>')
-        : ('<select data-act="kondisi" data-seq="' + node.sequence + '">' + kondisiOptions + '</select>')) +
-      (node.statusPekerjaan !== 'SELESAI' ? ('<button class="btn primary small" data-act="selesai" data-seq="' + node.sequence + '">Selesai &amp; Upload Realisasi</button>') : '<span class="rt-badge selesai">\u2713 Sudah direalisasikan</span>') +
+      kondisiHtml +
+      selesaiBtnHtml +
       '</div>' +
       '</div>' + (isLast ? '' : '<div class="rt-connector">\u2193</div>');
   }
@@ -5759,7 +5875,10 @@ window.renderRantaiPage = function(){
     var ct = chain.currentTransformer;
     var canSimulateNext = chain.status !== 'TERPUTUS' && chain.status !== 'DIBATALKAN' &&
       (ct.status === 'DIBAWA' || ct.status === 'LAYAK PAKAI' || ct.status === null);
-    var needsGanti = ct.status === 'CACAT / BOCOR' || ct.status === 'TIDAK LAYAK';
+    var lastNode = chain.nodes.length ? chain.nodes[chain.nodes.length - 1] : null;
+    var lastNodeCancelled = !!(lastNode && lastNode.statusPekerjaan === 'DIBATALKAN');
+    var badTrafoCondition = ct.status === 'CACAT / BOCOR' || ct.status === 'TIDAK LAYAK';
+    var needsGanti = badTrafoCondition || lastNodeCancelled;
     var needsPeriksa = ct.status === 'PERLU PEMERIKSAAN' || ct.status === 'PERLU PERBAIKAN';
 
     var histHtml = chain.history.slice().reverse().map(function(h){
@@ -5779,7 +5898,11 @@ window.renderRantaiPage = function(){
       '<div class="val">' + rtFmtKva(ct.daya) + ' \u2014 ' + esc(ct.status || 'BELUM ADA') + '</div>' +
       '<div class="sub" style="font-size:11px;color:var(--text-dim);margin-top:4px;">Asal: ' + esc(ct.asal || '\u2013') + (ct.noGardu ? (' (dari gardu ' + esc(ct.noGardu) + ')') : '') + ' \u00b7 Dibawa oleh: ' + esc(namaP) + '</div>' +
       '</div>' +
-      (needsGanti ? '<div class="rt-alert">Trafo yang keluar dinyatakan <b>' + esc(ct.status) + '</b> \u2014 rantai berhenti di titik ini. Trafo cacat TIDAK diteruskan ke gardu berikutnya. Gunakan tombol di bawah untuk memasukkan trafo pengganti dan melanjutkan rantai dari titik ini (node lama tetap tersimpan).<br><br><button class="btn primary small" data-act="ganti">Ganti Trafo</button></div>' : '') +
+      (needsGanti ? ('<div class="rt-alert">' +
+        (badTrafoCondition
+          ? ('Trafo yang keluar dinyatakan <b>' + esc(ct.status) + '</b> \u2014 rantai berhenti di titik ini. Trafo cacat TIDAK diteruskan ke gardu berikutnya.')
+          : 'Node terakhir ditandai <b>BATAL/TIDAK BISA</b> \u2014 rantai berhenti di titik ini.') +
+        ' Gunakan tombol di bawah untuk memasukkan trafo pengganti dan melanjutkan rantai dari titik ini (node lama tetap tersimpan).<br><br><button class="btn primary small" data-act="ganti">Ganti Trafo</button></div>') : '') +
       (needsPeriksa ? '<div class="rt-alert warn">Trafo yang keluar sedang berstatus <b>' + esc(ct.status) + '</b> \u2014 rantai ditahan sementara sampai kondisinya diperbarui (ubah lewat pilihan kondisi pada node terkait bila hasil pemeriksaan sudah ada).</div>' : '') +
       (canSimulateNext ? ('<div class="actions" style="margin-top:12px;"><button class="btn primary" data-act="simulate" data-petugas="' + petugas + '" data-daya="' + ct.daya + '">Simulasikan Node Berikutnya (' + rtFmtKva(ct.daya) + ')</button></div>') : '') +
       '<details class="rt-histbox"><summary>Riwayat rantai (' + chain.history.length + ')</summary>' + histHtml + '</details>' +
@@ -5928,8 +6051,12 @@ window.renderRantaiPage = function(){
 
     if(m.mode === 'ganti'){
       var opts = RT_LADDER.map(function(k){ return '<option value="' + k + '">' + k + ' kVA</option>'; }).join('');
+      var gantiCtStatus = m.chain.currentTransformer.status;
+      var gantiSub = (gantiCtStatus === 'CACAT / BOCOR' || gantiCtStatus === 'TIDAK LAYAK')
+        ? ('Trafo keluar dari ' + esc(m.chain.currentTransformer.noGardu||'-') + ' dinyatakan ' + esc(gantiCtStatus) + '.')
+        : ('Rantai di ' + esc(m.chain.currentTransformer.noGardu||'-') + ' terhenti — masukkan trafo pengganti untuk melanjutkan.');
       return '<div class="modal-overlay open" id="rtModalOverlay"><div class="modal">' +
-        '<div class="modal-head"><div><h2>Ganti Trafo</h2><div class="sub">Trafo keluar dari ' + esc(m.chain.currentTransformer.noGardu||'-') + ' dinyatakan ' + esc(m.chain.currentTransformer.status) + '.</div></div>' +
+        '<div class="modal-head"><div><h2>Ganti Trafo</h2><div class="sub">' + gantiSub + '</div></div>' +
         '<button class="modal-close" data-act="closemodal">&times;</button></div>' +
         '<div class="rt-form">' +
         '<label>Daya Trafo Pengganti<select id="rtGantiDaya">' + opts + '</select></label>' +
@@ -5997,9 +6124,17 @@ window.renderRantaiPage = function(){
       var namaMp = rtPetugasName(data, m.petugas);
       var modalMp = data.trafoModal[m.petugas];
       // Semua item selain yang sedang aktif \u2014 trafo cadangan maupun
-      // material \u2014 tampil bareng di sini sebagai satu daftar stok.
-      var stokItems = rtModalItems(modalMp).filter(function(it){ return it.id !== modalMp.activeId; });
-      var listHtml = stokItems.length ? stokItems.map(function(it){
+      // material \u2014 dipecah jadi 2 kelompok: yang BELUM terpasang (tab
+      // "Stok", ini yang default tampil) dan yang SUDAH terpasang (tab
+      // "Histori") \u2014 supaya daftar stok cuma berisi barang yang masih
+      // bisa dipakai, sementara yang sudah terpakai tetap tercatat di
+      // Histori dan tidak hilang datanya.
+      var allStokItems = rtModalItems(modalMp).filter(function(it){ return it.id !== modalMp.activeId; });
+      var belumItems = allStokItems.filter(function(it){ return it.status !== 'TERPASANG'; });
+      var historiItems = allStokItems.filter(function(it){ return it.status === 'TERPASANG'; });
+      var curTab = ui.materialTab === 'histori' ? 'histori' : 'stok';
+      var tabItems = curTab === 'histori' ? historiItems : belumItems;
+      function mpItemHtml(it){
         var jenisSp = it.jenis || 'trafo';
         var isMatSp = jenisSp === 'material';
         var nmHtml = isMatSp ? esc(it.nama || 'Material') : 'Trafo';
@@ -6015,19 +6150,26 @@ window.renderRantaiPage = function(){
              '<button class="btn small" data-act="tandaiterpakai" data-petugas="' + m.petugas + '" data-item="' + it.id + '" data-frommaterial="1" type="button">Tandai Terpakai</button>' +
              '<button class="btn small danger" data-act="removemodalitem" data-petugas="' + m.petugas + '" data-item="' + it.id + '" type="button">Hapus</button>';
         }
-        return '<div class="mp-item">' +
+        return '<div class="mp-item' + (isUsedExt ? ' usedext' : '') + '">' +
           '<span class="nm">' + nmHtml + '</span>' +
           '<span class="qty">' + qtyHtml + '</span>' +
           '<span class="sp"></span>' + rightMp +
           '</div>';
-      }).join('') : '';
+      }
+      var listHtml = tabItems.map(mpItemHtml).join('');
+      var tabsHtml = '<div class="mp-tabs">' +
+        '<button class="mp-tab' + (curTab === 'stok' ? ' active' : '') + '" data-act="mtabstok" type="button">Stok<span class="cnt">' + belumItems.length + '</span></button>' +
+        '<button class="mp-tab' + (curTab === 'histori' ? ' active' : '') + '" data-act="mtabhistori" type="button">Histori<span class="cnt">' + historiItems.length + '</span></button>' +
+        '</div>';
+      var emptyMsg = curTab === 'histori' ? 'Belum ada histori pemakaian.' : 'Belum ada stok cadangan.';
       return '<div class="modal-overlay open" id="rtModalOverlay"><div class="modal">' +
         '<div class="modal-head"><div><h2>\ud83d\udce6 Stok \u2014 ' + esc(namaMp) + '</h2>' +
-        '<div class="sub">Trafo cadangan dan material yang ikut dibawa vendor/petugas ini, di luar trafo yang sedang aktif di kartu.</div></div>' +
+        '<div class="sub">Trafo cadangan dan material yang ikut dibawa vendor/petugas ini, di luar trafo yang sedang aktif di kartu. Yang sudah terpasang otomatis pindah ke tab Histori.</div></div>' +
         '<button class="modal-close" data-act="closemodal">&times;</button></div>' +
-        (stokItems.length ? ('<div class="mp-list">' + listHtml + '</div>') : '<div class="mp-empty">Belum ada stok cadangan.</div>') +
-        '<div class="actions"><button class="btn" data-act="addmodalitem" data-petugas="' + m.petugas + '" type="button">+ Tambah Trafo</button>' +
-        '<button class="btn primary" data-act="addmaterial" data-petugas="' + m.petugas + '" type="button">+ Tambah Material</button></div>' +
+        tabsHtml +
+        (tabItems.length ? ('<div class="mp-list">' + listHtml + '</div>') : ('<div class="mp-empty">' + emptyMsg + '</div>')) +
+        (curTab === 'stok' ? ('<div class="actions"><button class="btn" data-act="addmodalitem" data-petugas="' + m.petugas + '" type="button">+ Tambah Trafo</button>' +
+        '<button class="btn primary" data-act="addmaterial" data-petugas="' + m.petugas + '" type="button">+ Tambah Material</button></div>') : '') +
         '</div></div>';
     }
 
@@ -6166,6 +6308,7 @@ window.renderRantaiPage = function(){
         if(!target){ alert('Pilih vendor/petugas tujuan.'); return; }
         var res = rtModalMoveItem(data, p, itemId, target);
         if(!res.ok){ alert(res.reason); return; }
+        ui.materialTab = 'stok';
         ui.modal = { mode:'materialpopup', petugas: target };
         paint();
       });
@@ -6190,6 +6333,7 @@ window.renderRantaiPage = function(){
         if(!String(noGardu||'').trim()){ alert('No. Gardu tujuan wajib diisi.'); return; }
         var res = rtModalMarkUsedExternal(data, p, itemId, { aktivitas:aktivitas, noGardu:noGardu, tanggal:tanggal, catatan:catatan, jumlahDipakai:jumlahDipakai });
         if(!res.ok){ alert(res.reason); return; }
+        if(fromMp){ ui.materialTab = 'histori'; }
         ui.modal = fromMp ? { mode:'materialpopup', petugas: p } : null;
         paint();
       });
@@ -6211,10 +6355,27 @@ window.renderRantaiPage = function(){
     root.querySelectorAll('[data-act="showmaterialpopup"]').forEach(function(el){
       el.addEventListener('click', function(e){
         e.stopPropagation();
+        ui.materialTab = 'stok';
         ui.modal = { mode:'materialpopup', petugas: el.getAttribute('data-petugas') };
         paint();
       });
     });
+    var mtabStokBtn = root.querySelector('[data-act="mtabstok"]');
+    if(mtabStokBtn){
+      mtabStokBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        ui.materialTab = 'stok';
+        paint();
+      });
+    }
+    var mtabHistoriBtn = root.querySelector('[data-act="mtabhistori"]');
+    if(mtabHistoriBtn){
+      mtabHistoriBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        ui.materialTab = 'histori';
+        paint();
+      });
+    }
     root.querySelectorAll('[data-act="addmaterial"]').forEach(function(el){
       el.addEventListener('click', function(e){
         e.stopPropagation();
@@ -6253,6 +6414,49 @@ window.renderRantaiPage = function(){
     if(dlBtn) dlBtn.addEventListener('click', function(){
       rtDownloadJadwal(data, { petugas: ui.filterPetugas, daya: ui.filterDaya, status: ui.filterStatus, penyulang: ui.filterPenyulang });
     });
+
+    var kelasBtn = document.getElementById('rtKelasFilterBtn');
+    if(kelasBtn){
+      kelasBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        ui.kelasFilterOpen = !ui.kelasFilterOpen;
+        paint();
+      });
+    }
+    var kelasPanel = document.getElementById('rtKelasFilterPanel');
+    if(kelasPanel){
+      kelasPanel.addEventListener('click', function(e){ e.stopPropagation(); });
+      kelasPanel.querySelectorAll('input[data-kelasopt]').forEach(function(cb){
+        cb.addEventListener('change', function(){
+          var avail = rtAvailableKelasList();
+          var cur = data.kelasFilter ? data.kelasFilter.slice() : avail.slice();
+          var k = cb.getAttribute('data-kelasopt');
+          var idx = cur.indexOf(k);
+          if(cb.checked){ if(idx === -1) cur.push(k); }
+          else { if(idx !== -1) cur.splice(idx, 1); }
+          setKelasFilter(cur.length === avail.length ? null : cur);
+          paint();
+        });
+      });
+      var kelasAll = document.getElementById('rtKelasSelAll');
+      if(kelasAll) kelasAll.addEventListener('click', function(){ setKelasFilter(null); paint(); });
+      var kelasNone = document.getElementById('rtKelasSelNone');
+      if(kelasNone) kelasNone.addEventListener('click', function(){ setKelasFilter([]); paint(); });
+    }
+    if(ui.kelasFilterOpen && !kelasOutsideListenerAttached){
+      // Klik di luar panel dropdown akan menutupnya lagi. Ditandai lewat
+      // kelasOutsideListenerAttached supaya cuma 1 listener yang aktif
+      // meski wire() dipanggil ulang berkali-kali selagi panel terbuka.
+      kelasOutsideListenerAttached = true;
+      document.addEventListener('click', function closeKelasFilter(){
+        kelasOutsideListenerAttached = false;
+        ui.kelasFilterOpen = false;
+        document.removeEventListener('click', closeKelasFilter);
+        paint();
+      }, { once:true });
+    } else if(!ui.kelasFilterOpen){
+      kelasOutsideListenerAttached = false;
+    }
 
     root.querySelectorAll('[data-act="simulate"]').forEach(function(el){
       el.addEventListener('click', function(){
@@ -6295,6 +6499,31 @@ window.renderRantaiPage = function(){
         var chain = rtActiveChain(data, ui.selectedPetugas);
         ui.modal = { mode:'ganti', chain: chain };
         paint();
+      });
+    });
+    root.querySelectorAll('[data-act="batalnode"]').forEach(function(el){
+      el.addEventListener('click', function(){
+        var chain = rtActiveChain(data, ui.selectedPetugas);
+        var seq = Number(el.getAttribute('data-seq'));
+        if(!chain) return;
+        var alasan = prompt('Kenapa node ini batal/tidak bisa dilaksanakan? (opsional, boleh dikosongkan)', '');
+        if(alasan === null) return; // user klik Cancel di prompt
+        if(!confirm('Batalkan node #' + seq + ' ini? Rantai akan berhenti di titik ini (status TERPUTUS) — gunakan "Ganti Trafo" atau mulai rantai baru untuk melanjutkan.')) return;
+        var res = rtCancelNode(data, chain, seq, alasan.trim());
+        if(!res.ok){ alert(res.reason); return; }
+        paint();
+      });
+    });
+    root.querySelectorAll('[data-act="catatan"]').forEach(function(el){
+      el.addEventListener('change', function(){
+        var chain = rtActiveChain(data, ui.selectedPetugas);
+        var seq = Number(el.getAttribute('data-seq'));
+        if(!chain) return;
+        var node = chain.nodes.find(function(n){ return n.sequence === seq; });
+        if(!node) return;
+        node.catatan = el.value;
+        chain.updatedAt = new Date().toISOString();
+        rtSave(data);
       });
     });
 
