@@ -877,12 +877,33 @@ body{
 .inp-status.ok{ color:#16A34A; }
 
 @media (max-width:900px){
-  .shell-top{ flex-direction:column; align-items:stretch; gap:12px; }
-  .shell-brand{ margin-right:0; }
-  .shell-tabs{ width:100%; }
+  /* Header di layar kecil TETAP berupa baris yang membungkus, bukan kolom.
+     Dengan flex-direction:column, tiap anak header mendapat barisnya
+     sendiri — itulah sebabnya logo PLN turun ke bawah judul alih-alih
+     sejajar dengan logo Danantara. Sebagai baris yang membungkus,
+     kedua logo tetap berada di baris teratas: Danantara di kiri,
+     PLN didorong ke kanan oleh margin otomatis. */
+  .shell-top{ flex-direction:row; flex-wrap:wrap; align-items:flex-start; gap:10px 12px; }
+  /* flex-basis 0 (bukan auto) itu kuncinya: dengan auto, lebar dasar blok
+     merek dihitung dari isinya — dan karena judul di bawah meminta 100%,
+     blok ini jadi selebar satu baris penuh sehingga logo PLN terdesak ke
+     baris berikutnya. Dengan basis 0, blok merek hanya mengambil sisa
+     ruang SETELAH logo PLN mendapat tempatnya di baris yang sama. */
+  .shell-brand{ flex:1 1 0; min-width:0; margin-right:auto; align-items:flex-start; flex-wrap:wrap; gap:7px 10px; }
+  /* Judul turun ke baris sendiri supaya baris teratas cukup lega untuk
+     logo di kedua ujungnya. */
+  .shell-brand h1{ flex-basis:100%; font-size:17px; }
+  /* Kedua wadah logo dibuat setinggi sama & gambarnya ditengahkan, jadi
+     saat kedua wadah rata atas, logonya pun terlihat benar-benar sejajar
+     walau tinggi aslinya berbeda. */
+  .shell-logo-badge{ height:30px; align-items:center; }
+  .shell-logo-badge img[alt="Logo Danantara Indonesia"]{ height:20px; }
+  .shell-logo-badge img[alt="Logo PLN"]{ height:28px; }
+  .shell-logo-badge.danantara{ order:2; margin-left:auto; align-self:flex-start; flex:none; }
+  .shell-linebreak{ order:3; flex-basis:100%; }
+  .shell-tabs{ order:4; width:100%; }
   .shell-tab{ flex:none; justify-content:center; }
-  .shell-refresh{ align-items:flex-start; }
-  .shell-logo-badge.danantara{ align-self:flex-end; }
+  .shell-refresh{ order:5; flex-basis:100%; width:100%; align-items:flex-start; }
 }
 
 </style>
@@ -6097,6 +6118,12 @@ function rtKumpulkanBarisJadwal(data, filters){
   chains.forEach(function(c){
     (c.nodes||[]).forEach(function(n){
       if(n.statusPekerjaan === 'DIBATALKAN') return;
+      // Lokasi yang SUDAH terealisasi tidak ikut lagi. Surat Perintah Kerja
+      // dan jadwal itu daftar pekerjaan yang masih harus dikerjakan —
+      // memasukkan lokasi yang sudah selesai bikin petugas mendatangi
+      // gardu yang trafonya sudah diganti, dan jumlah lokasi di kepala
+      // surat jadi tidak mencerminkan sisa pekerjaan sebenarnya.
+      if(n.statusPekerjaan === 'SELESAI') return;
       // Node warisan hasil "Ganti Trafo" sudah tercetak lewat rantai
       // aslinya — kalau ikut diekspor, satu lokasi muncul dobel di jadwal.
       if(n.locked) return;
@@ -6180,6 +6207,31 @@ function rtBuildSpkHtml(data, filters){
   var rantaiIds = [];
   rows.forEach(function(r){ if(rantaiIds.indexOf(r.chain.id) === -1) rantaiIds.push(r.chain.id); });
 
+  /* Tabel JADWAL KERJA LAPANGAN — kolomnya dibuat persis sama dengan sheet
+     jadwal kerja lapangan yang dipakai ULP (NO, Tanggal Pelaksanaan,
+     Penyulang, Section Jaringan, Kategori, Deskripsi Kegiatan, Vendor,
+     x & y, JAM, GARDU PADAM), sama dengan isi ekspor CSV. Jadi lembar ini
+     bisa langsung dicocokkan baris per baris dengan sheet itu, tanpa perlu
+     menerjemahkan istilah. Kolom Section Jaringan & JAM sengaja dikosongkan
+     karena memang diisi manual sesuai kondisi hari H. */
+  var jadwalHtml = rows.map(function(r, i){
+    var n = r.node, c = r.chain;
+    var xy = (n.lat != null && n.lng != null) ? (n.lat.toFixed(6) + ',' + n.lng.toFixed(6)) : '';
+    var vendor = n.carriedByName || rtPetugasName(data, c.petugas) || '';
+    return '<tr>' +
+      '<td class="c">' + (i+1) + '</td>' +
+      '<td class="c nowrap">' + esc(rtFmtTglDash(n.tanggal)) + '</td>' +
+      '<td>' + esc(n.penyulang || '') + '</td>' +
+      '<td class="isi"></td>' +
+      '<td>Management Trafo</td>' +
+      '<td>TL Penanganan gardu OB</td>' +
+      '<td>' + esc(vendor) + '</td>' +
+      '<td class="mono nowrap">' + esc(xy) + '</td>' +
+      '<td class="isi"></td>' +
+      '<td class="nowrap">Gardu ' + esc(n.noGardu || '') + '</td>' +
+      '</tr>';
+  }).join('');
+
   var barisHtml = rows.map(function(r, i){
     var n = r.node;
     var xy = (n.lat != null && n.lng != null) ? (n.lat.toFixed(6) + ', ' + n.lng.toFixed(6)) : '–';
@@ -6220,6 +6272,16 @@ function rtBuildSpkHtml(data, filters){
     'table.data th{ background:#123A6B; color:#fff; font-size:10px; text-transform:uppercase; letter-spacing:.03em; padding:6px 5px; border:1px solid #123A6B; text-align:left; }' +
     'table.data td{ border:1px solid #C9D4E4; padding:5px; vertical-align:top; }' +
     'table.data tr:nth-child(even) td{ background:#F6F8FC; }' +
+    // Baris header ikut tercetak ulang tiap halaman, dan satu baris tidak
+    // dipotong di tengah saat ganti halaman — penting karena jadwal bisa
+    // lebih panjang dari satu lembar.
+    'table.data thead{ display:table-header-group; }' +
+    'table.data tr{ page-break-inside:avoid; }' +
+    'h2.judul-tabel{ font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:#123A6B; margin:16px 0 7px; padding-bottom:4px; border-bottom:2px solid #123A6B; }' +
+    'h2.judul-tabel:first-of-type{ margin-top:4px; }' +
+    // Kolom yang memang diisi tangan di lapangan diberi latar polos.
+    'table.data td.isi{ background:#fff !important; }' +
+    'table.jadwal td{ font-size:10px; }' +
     '.c{ text-align:center; } .nowrap{ white-space:nowrap; }' +
     '.sub{ font-size:9.5px; color:#5B6A80; margin-top:1px; }' +
     '.mono{ font-family:"Consolas",monospace; }' +
@@ -6242,6 +6304,15 @@ function rtBuildSpkHtml(data, filters){
     '<tr><td>Tanggal pelaksanaan</td><td>' + esc(rentang) + '</td>' +
         '<td style="color:#4B5768;">Rantai</td><td style="font-weight:700;">' + esc(rantaiIds.join(', ') || '–') + '</td></tr>' +
     '</table>' +
+    '<h2 class="judul-tabel">Jadwal Kerja Lapangan</h2>' +
+    '<table class="data jadwal"><thead><tr>' +
+    '<th style="width:26px;">NO</th><th style="width:74px;">Tanggal Pelaksanaan</th><th style="width:88px;">Penyulang</th>' +
+    '<th style="width:74px;">Section Jaringan</th><th style="width:96px;">Kategori</th>' +
+    '<th style="width:120px;">Deskripsi Kegiatan</th><th style="width:110px;">Vendor</th>' +
+    '<th style="width:118px;">x &amp; y</th><th style="width:48px;">JAM</th><th>GARDU PADAM</th>' +
+    '</tr></thead><tbody>' + jadwalHtml + '</tbody></table>' +
+
+    '<h2 class="judul-tabel">Rincian Lokasi — Pegangan Petugas di Lapangan</h2>' +
     '<table class="data"><thead><tr>' +
     '<th style="width:26px;">No</th><th style="width:66px;">Tanggal</th><th>Gardu / Penyulang</th>' +
     '<th>Alamat &amp; Koordinat</th><th style="width:118px;">Pekerjaan</th><th style="width:96px;">Beban</th>' +
@@ -6380,6 +6451,11 @@ window.PORTAL_CSS_RANTAI = "\n" +
 ".panel h3{margin:0 0 4px;font-size:13px;font-weight:800;letter-spacing:-.01em;}\n" +
 ".panel .desc{font-size:11.5px;color:var(--text-dim);line-height:1.6;margin-bottom:10px;}\n" +
 ".rt-panelhead{display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;}\n" +
+/* Di layar kecil judul+penjelasan dan tombol ditumpuk, bukan
+   berdampingan — kalau berdampingan, kolom teksnya tinggal sempit
+   dan paragrafnya memanjang ke bawah. */
+"@media (max-width:720px){.rt-panelhead{flex-direction:column;align-items:stretch;gap:9px;}\n" +
+".rt-panelhead > div:last-child{justify-content:flex-start;}}\n" +
 ".filterbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:11px 14px;margin-bottom:16px;box-shadow:var(--shadow);}\n" +
 ".filterbar select,.filterbar input{padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:12px;color:var(--text);background:var(--panel-2);}\n" +
 ".filterbar input{min-width:180px;flex:1;}\n" +
@@ -6469,7 +6545,8 @@ window.renderRantaiPage = function(){
     selectedPetugas: data.petugasList.length ? data.petugasList[0].id : null,
     filterPetugas:'SEMUA', filterDaya:'SEMUA', filterStatus:'SEMUA', filterPenyulang:'',
     modal: null, /* {mode:'sim'|'ganti'|'editmodal'|'addpetugas', ...payload} */
-    materialTab: 'stok', /* 'stok' (belum terpasang) atau 'histori' (sudah terpasang) di popup Stok */
+    materialTab: 'stok',
+    modalPanelOpen: false, /* 'stok' (belum terpasang) atau 'histori' (sudah terpasang) di popup Stok */
     kelasFilterOpen: false /* dropdown "Kelas Aset" di filter bar sedang kebuka atau tidak */
   };
 
@@ -6551,8 +6628,16 @@ window.renderRantaiPage = function(){
         '</tr>';
     }).join('');
     return '<div class="panel">' +
+      // Penjelasan panjang hanya ditampilkan saat panel DIBUKA. Saat
+      // tertutup cukup satu baris ringkas \u2014 di layar HP, paragraf penuh
+      // memakan hampir satu layar penuh padahal isinya sekali baca saja,
+      // sementara yang dicari pengguna (tombol & tabelnya) terdorong jauh
+      // ke bawah.
       '<div class="rt-panelhead" id="rtModalPanelHead"><div><h3>Trafo Modal</h3>' +
-      '<div class="desc">Trafo yang sedang aktif dipegang tiap petugas/vendor \u2014 dipakai sebagai titik awal saat rantai baru dimulai. Tiap petugas/vendor bisa membawa beberapa trafo sekaligus (lihat dropdown &amp; tombol + di kartu dashboard); baris di sini mengikuti trafo yang sedang aktif dipilih. Nama bisa diganti kapan saja (mis. diserahkan ke vendor lain) tanpa mengubah histori rantai yang sudah ada.</div></div>' +
+      '<div class="desc">' + (ui.modalPanelOpen
+        ? 'Trafo yang sedang aktif dipegang tiap petugas/vendor \u2014 dipakai sebagai titik awal saat rantai baru dimulai. Tiap petugas/vendor bisa membawa beberapa trafo sekaligus (lihat dropdown &amp; tombol + di kartu dashboard); baris di sini mengikuti trafo yang sedang aktif dipilih. Nama bisa diganti kapan saja (mis. diserahkan ke vendor lain) tanpa mengubah histori rantai yang sudah ada.'
+        : 'Trafo aktif tiap petugas/vendor \u2014 titik awal saat rantai baru dimulai.') +
+      '</div></div>' +
       '<div style="display:flex;gap:8px;">' +
       '<button class="btn small primary" id="rtAddPetugasBtn">+ Tambah Petugas</button>' +
       '<button class="btn small" id="rtModalToggle">' + (ui.modalPanelOpen ? 'Tutup' : 'Buka') + '</button>' +
