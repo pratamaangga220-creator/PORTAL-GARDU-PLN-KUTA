@@ -876,6 +876,233 @@ body{
 .inp-status.err{ color:#DC2626; }
 .inp-status.ok{ color:#16A34A; }
 
+
+/* ================================================================
+   LAPISAN TAMPILAN FUTURISTIK
+   Ditulis sebagai lapisan TAMBAHAN di atas gaya yang sudah ada —
+   bukan menulis ulang — supaya tata letak, warna status (OVERLOAD
+   merah / WASPADA kuning / AMAN hijau) dan seluruh perilaku halaman
+   tidak berubah sedikit pun.
+
+   Prinsip yang dipegang:
+   1. Area konten TETAP terang. Portal ini dipakai petugas di lapangan
+      di bawah matahari Bali; menggelapkan isi demi gaya justru bikin
+      layar tidak terbaca. Kesan futuristik diambil dari ketelitian
+      detail, cahaya pada elemen aktif, dan gerak — bukan dari warna
+      gelap.
+   2. Warna yang MENGANDUNG ARTI tidak pernah diganti jadi hiasan.
+      Angka OVERLOAD tetap merah; yang ditambahkan hanya cahaya tipis.
+   3. Gerak dibuat singkat (di bawah setengah detik) dan seluruhnya
+      dimatikan otomatis kalau perangkat minta "kurangi animasi".
+   4. Efek berat (blur latar) hanya dipakai di satu tempat, karena HP
+      kelas menengah ke bawah langsung tersendat kalau dipakai boros.
+   ================================================================ */
+:root{
+  --neon:#38E1FF;
+  --neon-2:#5B8CFF;
+  --neon-soft:rgba(56,225,255,.30);
+  --neon-faint:rgba(56,225,255,.12);
+}
+
+/* ---------- Header: sapuan cahaya yang bergerak pelan ---------- */
+.shell-top{ position:sticky; overflow:hidden; }
+.shell-top::after{
+  content:''; position:absolute; inset:0; pointer-events:none; z-index:0;
+  background:linear-gradient(115deg, transparent 38%, rgba(120,220,255,.11) 47%, rgba(160,235,255,.19) 50%, rgba(120,220,255,.11) 53%, transparent 62%);
+  transform:translateX(-120%);
+  animation:shellSweep 9s cubic-bezier(.45,0,.2,1) infinite;
+}
+@keyframes shellSweep{
+  0%{ transform:translateX(-120%); }
+  55%,100%{ transform:translateX(120%); }
+}
+/* Isi header harus di ATAS sapuan cahaya. */
+.shell-top > *{ position:relative; z-index:1; }
+
+/* Kisi halus di header — memberi kesan panel instrumen tanpa mengganggu
+   keterbacaan teks di atasnya (opasitasnya sangat rendah). */
+.shell-top::before{
+  content:''; position:absolute; inset:0; pointer-events:none; z-index:0;
+  background-image:
+    linear-gradient(rgba(140,215,255,.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(140,215,255,.055) 1px, transparent 1px);
+  background-size:34px 34px, 34px 34px;
+  mask-image:linear-gradient(180deg, rgba(0,0,0,.85), transparent 85%);
+  -webkit-mask-image:linear-gradient(180deg, rgba(0,0,0,.85), transparent 85%);
+}
+/* Garis cahaya tipis sebagai batas bawah header. */
+.shell-top{ border-bottom:1px solid rgba(56,225,255,.30); }
+
+/* Titik status berdenyut — penanda "data hidup". */
+.shell-eyebrow .dot{ position:relative; }
+.shell-eyebrow .dot::after{
+  content:''; position:absolute; inset:0; border-radius:50%;
+  box-shadow:0 0 0 0 rgba(79,168,255,.65);
+  animation:dotPulse 2.4s ease-out infinite;
+}
+@keyframes dotPulse{
+  0%{ box-shadow:0 0 0 0 rgba(79,168,255,.6); }
+  70%,100%{ box-shadow:0 0 0 9px rgba(79,168,255,0); }
+}
+
+/* ---------- Bilah tab: panel kaca + tab aktif bercahaya ---------- */
+.shell-tabs{
+  backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px);
+  border:1px solid rgba(255,255,255,.14);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10);
+}
+.shell-tab{
+  position:relative;
+  transition:background .18s ease, color .18s ease, box-shadow .25s ease, transform .18s ease;
+}
+.shell-tab:hover{ transform:translateY(-1px); }
+.shell-tab.active{
+  box-shadow:0 0 0 1px rgba(56,225,255,.55), 0 0 14px rgba(56,225,255,.34), 0 2px 8px rgba(6,20,45,.28);
+}
+/* Garis bawah tipis yang melebar saat tab jadi aktif. */
+.shell-tab::after{
+  content:''; position:absolute; left:50%; right:50%; bottom:2px; height:2px; border-radius:2px;
+  background:linear-gradient(90deg, var(--neon), var(--neon-2));
+  opacity:0; transition:left .28s cubic-bezier(.16,.84,.34,1), right .28s cubic-bezier(.16,.84,.34,1), opacity .2s ease;
+}
+.shell-tab.active::after{ left:10px; right:10px; opacity:.95; }
+
+/* Tombol header: tepi menyala saat disentuh. */
+.shell-refresh button{ transition:background .18s ease, box-shadow .22s ease, transform .18s ease; }
+.shell-refresh button:hover{ box-shadow:0 0 0 1px var(--neon-soft), 0 0 12px rgba(56,225,255,.25); transform:translateY(-1px); }
+
+/* ---------- Perpindahan antar tab ---------- */
+/* Seluruh isi halaman dibangun ulang tiap ganti tab, jadi animasinya
+   dipasang pada wadah terluar dan dipicu ulang setiap render. */
+#pageroot.page-enter{ animation:pageEnter .44s cubic-bezier(.16,.84,.34,1) both; }
+@keyframes pageEnter{
+  from{ opacity:0; transform:translateY(16px) scale(.994); filter:blur(3px); }
+  to{ opacity:1; transform:none; filter:none; }
+}
+/* Isi utama menyusul sedikit lebih lambat supaya terasa berlapis,
+   bukan satu blok kaku yang geser bersamaan. */
+#pageroot.page-enter .wrap > *{ animation:pageStagger .5s cubic-bezier(.16,.84,.34,1) both; }
+#pageroot.page-enter .wrap > *:nth-child(1){ animation-delay:.03s; }
+#pageroot.page-enter .wrap > *:nth-child(2){ animation-delay:.07s; }
+#pageroot.page-enter .wrap > *:nth-child(3){ animation-delay:.11s; }
+#pageroot.page-enter .wrap > *:nth-child(4){ animation-delay:.15s; }
+#pageroot.page-enter .wrap > *:nth-child(n+5){ animation-delay:.18s; }
+@keyframes pageStagger{
+  from{ opacity:0; transform:translateY(12px); }
+  to{ opacity:1; transform:none; }
+}
+
+/* Garis cahaya tipis yang melintas di puncak layar saat tab berganti —
+   penanda singkat bahwa halaman sedang disusun. */
+#pageSweep{
+  position:fixed; top:0; left:0; right:0; height:2px; z-index:900; pointer-events:none;
+  background:linear-gradient(90deg, transparent, var(--neon) 35%, #fff 50%, var(--neon) 65%, transparent);
+  transform:scaleX(0); transform-origin:left center; opacity:0;
+}
+#pageSweep.run{ animation:sweepBar .62s cubic-bezier(.3,.9,.2,1) forwards; }
+@keyframes sweepBar{
+  0%{ transform:scaleX(0); opacity:1; }
+  60%{ transform:scaleX(1); opacity:1; }
+  100%{ transform:scaleX(1); opacity:0; }
+}
+
+/* ---------- Kartu & panel: garis aksen + sedikit terangkat ---------- */
+/* overflow:hidden SENGAJA TIDAK dipakai di sini. Panel banyak memuat
+   elemen yang sengaja menonjol keluar (dropdown filter, tooltip grafik,
+   menu), dan sekali panel dipotong, elemen-elemen itu ikut terpangkas —
+   kerusakan yang sulit dilacak karena penyebabnya cuma satu baris hiasan.
+   Sudut garis aksennya dibulatkan sendiri, jadi tidak perlu dipotong. */
+.panel{ position:relative; transition:box-shadow .24s ease, transform .24s ease, border-color .24s ease; }
+.panel::before{
+  content:''; position:absolute; top:0; left:12px; right:12px; height:2px;
+  border-radius:0 0 2px 2px; pointer-events:none;
+  background:linear-gradient(90deg, transparent, var(--neon-2) 18%, var(--neon) 50%, var(--neon-2) 82%, transparent);
+  opacity:.55; transition:opacity .3s ease, left .4s cubic-bezier(.16,.84,.34,1), right .4s cubic-bezier(.16,.84,.34,1);
+}
+/* Kurung sudut gaya panel instrumen — digambar dari delapan garis tipis
+   pada satu elemen semu, jadi tidak menambah satu pun simpul DOM. */
+.panel::after{
+  content:''; position:absolute; inset:6px; pointer-events:none;
+  background:
+    linear-gradient(var(--neon),var(--neon)) left top,
+    linear-gradient(var(--neon),var(--neon)) left top,
+    linear-gradient(var(--neon),var(--neon)) right top,
+    linear-gradient(var(--neon),var(--neon)) right top,
+    linear-gradient(var(--neon),var(--neon)) left bottom,
+    linear-gradient(var(--neon),var(--neon)) left bottom,
+    linear-gradient(var(--neon),var(--neon)) right bottom,
+    linear-gradient(var(--neon),var(--neon)) right bottom;
+  background-repeat:no-repeat;
+  background-size:11px 1.5px, 1.5px 11px, 11px 1.5px, 1.5px 11px, 11px 1.5px, 1.5px 11px, 11px 1.5px, 1.5px 11px;
+  opacity:.26; transition:opacity .3s ease, inset .3s ease;
+}
+.panel:hover{ box-shadow:0 2px 6px rgba(11,30,61,.08), 0 16px 38px rgba(11,30,61,.14); transform:translateY(-2px); border-color:rgba(46,143,224,.45); }
+.panel:hover::before{ opacity:1; left:0; right:0; }
+.panel:hover::after{ opacity:.7; }
+
+/* Kartu KPI: garis aksen kiri yang sudah ada dibiarkan, ditambah
+   cahaya tipis pada angkanya. Warna angka TIDAK diubah karena
+   merah/kuning/hijau di sini berarti status beban, bukan hiasan. */
+.kpi{ position:relative; transition:box-shadow .22s ease, transform .22s ease; }
+.kpi:hover{ transform:translateY(-2px); box-shadow:0 10px 26px rgba(11,30,61,.14); }
+.kpi .k-val, .rk-kpi-val{ text-shadow:0 0 18px rgba(46,143,224,.22); }
+
+.rk-kpi{ position:relative; transition:box-shadow .22s ease, transform .22s ease, border-color .22s ease; }
+.rk-kpi:hover{ transform:translateY(-2px); box-shadow:0 10px 26px rgba(11,30,61,.14); }
+
+/* Kartu angka memakai kurung sudut yang sama dengan panel, supaya seluruh
+   kartu di portal berbicara dalam satu bahasa visual. Hanya dua sudut
+   kanan yang dipakai — sisi kiri kartu ini sudah punya garis aksen warna
+   status (merah/kuning/hijau) bawaan, dan menambah kurung di sana justru
+   meramaikan penanda yang membawa arti. */
+.kpi::after, .rk-kpi::after{
+  content:''; position:absolute; inset:6px; pointer-events:none;
+  background:
+    linear-gradient(var(--neon),var(--neon)) right top,
+    linear-gradient(var(--neon),var(--neon)) right top,
+    linear-gradient(var(--neon),var(--neon)) right bottom,
+    linear-gradient(var(--neon),var(--neon)) right bottom;
+  background-repeat:no-repeat;
+  background-size:9px 1.5px, 1.5px 9px, 9px 1.5px, 1.5px 9px;
+  opacity:.22; transition:opacity .3s ease;
+}
+.kpi:hover::after, .rk-kpi:hover::after{ opacity:.65; }
+
+/* Kartu petugas di Rantai Manajemen Trafo. */
+.rt-pcard{ transition:box-shadow .22s ease, transform .22s ease, border-color .22s ease; }
+.rt-pcard:hover{ transform:translateY(-2px); box-shadow:0 12px 30px rgba(11,30,61,.15); }
+
+/* ---------- Tabel: kepala kolom bergradien ---------- */
+.data thead th{
+  background:linear-gradient(180deg, #16406F 0%, #123A6B 100%);
+  border-bottom:2px solid rgba(56,225,255,.45);
+}
+
+/* ---------- Tombol utama: cahaya saat disentuh ---------- */
+.btn.primary{ transition:background .18s ease, box-shadow .22s ease, transform .16s ease; }
+.btn.primary:hover{ box-shadow:0 0 0 1px var(--neon-soft), 0 6px 18px rgba(46,143,224,.35); transform:translateY(-1px); }
+
+/* ---------- Header tiap halaman: garis cahaya di tepi bawah ---------- */
+header.top{ position:relative; }
+header.top::after{
+  content:''; position:absolute; left:0; right:0; bottom:0; height:1px;
+  background:linear-gradient(90deg, transparent, rgba(56,225,255,.55), transparent);
+}
+
+/* ---------- Hormati pengaturan "kurangi animasi" pada perangkat ----------
+   Sebagian orang pusing/mual oleh gerak di layar, dan sebagian HP lama
+   tersendat. Kalau perangkat minta animasi dikurangi, semua gerak di
+   atas dimatikan — tampilannya tetap rapi, hanya tanpa gerak. */
+@media (prefers-reduced-motion: reduce){
+  .shell-top::after, .shell-eyebrow .dot::after, #pageSweep{ animation:none !important; }
+  .shell-top::after{ display:none; }
+  #pageroot.page-enter, #pageroot.page-enter .wrap > *{ animation:none !important; }
+  .panel, .kpi, .rk-kpi, .rt-pcard, .shell-tab, .btn.primary, .shell-refresh button{ transition:none !important; }
+  .panel:hover, .kpi:hover, .rk-kpi:hover, .rt-pcard:hover, .shell-tab:hover, .btn.primary:hover, .shell-refresh button:hover{ transform:none !important; }
+  .panel::before{ opacity:.65; }
+  .panel:hover::after, .kpi:hover::after, .rk-kpi:hover::after{ opacity:.3; }
+}
+
 @media (max-width:900px){
   /* Header di layar kecil TETAP berupa baris yang membungkus, bukan kolom.
      Dengan flex-direction:column, tiap anak header mendapat barisnya
@@ -966,6 +1193,10 @@ body{
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
         Laporan Bulanan
       </button>
+      <button id="btnTesKoneksi" type="button" title="Periksa apakah Apps Script bisa dihubungi dari perangkat ini">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+        Tes Koneksi
+      </button>
     </div>
     <div class="shell-stamp" id="refStamp">Memuat snapshot bawaan&hellip;</div>
   </div>
@@ -994,6 +1225,7 @@ body{
 </div>
 
 <div class="viewport" id="viewport">
+  <div id="pageSweep" aria-hidden="true"></div>
   <div class="pagewrap" id="pageroot"></div>
 </div>
 <style id="pagecss"></style>
@@ -1529,6 +1761,51 @@ window.renderBebanPage = function(){
    jauh ke bawah file ini, cari "var SHEET_ID") — jangan cuma salah satu.
    ================================================================ */
 var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwht1DqO-PWxFk3m3XLa2yqird1UreLVPijCBiOIOrfdvJwux7DrMvw0shn97NK5OQjIA/exec';
+
+/* ================================================================
+   PESAN GAGAL KONEKSI
+   ----------------------------------------------------------------
+   Kalau fetch ke Apps Script gagal di tingkat JARINGAN, browser cuma
+   melempar "Failed to fetch" (Chrome), "NetworkError..." (Firefox),
+   atau "Load failed" (Safari). Buat petugas di lapangan ketiganya
+   sama tidak berartinya, dan ketiganya BUKAN error dari Code.gs —
+   semua jalur error di doPost mengembalikan JSON, jadi kalau server
+   yang bermasalah pesannya pasti "Gagal: <keterangan>".
+
+   Penyebab sebenarnya hampir selalu salah satu dari: HP/PC tidak ada
+   internet, akses deployment Web App bukan "Anyone" (paling sering
+   terjadi setelah deploy ulang — dialognya mereset ke "Only myself",
+   lalu URL /exec mengalihkan ke halaman login Google dan browser
+   memblokirnya), URL deployment sudah tidak berlaku, atau fotonya
+   kebesaran sehingga unggahan putus di tengah jalan.
+
+   Fungsi ini menerjemahkan error mentah itu jadi langkah yang bisa
+   dikerjakan. Dipakai di SEMUA .catch() fetch di portal ini.
+   ================================================================ */
+window.pesanGagalKoneksi = function(err, konteks){
+  var mentah = String((err && err.message) ? err.message : err || '');
+  var jaringan = /failed to fetch|networkerror|load failed|network request failed|connection appears to be offline|err_(internet|network|connection)/i.test(mentah);
+
+  if(!jaringan){
+    /* Error lain (misalnya JSON tidak terbaca) ditampilkan apa adanya —
+       ini biasanya memang perlu dibaca teknis. */
+    return (konteks ? konteks + ': ' : '') + mentah;
+  }
+
+  if(typeof navigator !== 'undefined' && navigator.onLine === false){
+    return 'Perangkat ini sedang TIDAK terhubung internet. Data yang sudah Anda isi masih utuh di layar — '
+      + 'nyalakan data/WiFi, lalu tekan kirim lagi tanpa mengisi ulang.';
+  }
+
+  return 'Tidak bisa menghubungi Apps Script (permintaan tidak sampai ke server). '
+    + 'Data yang sudah Anda isi masih utuh di layar, jadi jangan tutup halaman ini. '
+    + 'Urutan pemeriksaan: (1) pastikan HP/PC ini ada internet; '
+    + '(2) buka APPS_SCRIPT_URL + "?ping=1" di tab baru — kalau yang muncul halaman login Google, '
+    + 'berarti akses deployment-nya bukan "Anyone": buka Apps Script > Deploy > Manage deployments > '
+    + 'edit (pensil) > Who has access: Anyone > Deploy; '
+    + '(3) kalau fotonya banyak/besar, kurangi dulu lalu kirim ulang. '
+    + '[pesan asli browser: ' + mentah + ']';
+};
 
 var RZ_SLOTS = [
   { key:'nameplate_existing', label:'1. Nameplate Trafo Existing' },
@@ -2137,7 +2414,7 @@ window.initRealisasiUploadForm = function(){
           }
         })
         .catch(function(err){
-          setMeasureStatus(statusEl, 'Gagal menghubungi server OCR: ' + err.message, 'err');
+          setMeasureStatus(statusEl, window.pesanGagalKoneksi(err, 'Gagal menghubungi server OCR'), 'err');
         });
     });
   }
@@ -2361,7 +2638,7 @@ window.initRealisasiUploadForm = function(){
         })
         .catch(function(err){
           rzSubmitting = false;
-          showMsg('Gagal menghubungi Apps Script: ' + err.message, 'err');
+          showMsg(window.pesanGagalKoneksi(err, 'Gagal menghubungi Apps Script'), 'err');
           submitBtn.removeAttribute('disabled');
           submitBtn.textContent = 'Kirim & Simpan ke Drive';
         });
@@ -3577,7 +3854,7 @@ window.renderGenericSheetPage = function(key){
         })
         .catch(function(err){
           inp.disabled = false;
-          alert('Gagal terkirim: ' + (err && err.message ? err.message : err));
+          alert(window.pesanGagalKoneksi(err, 'Gagal terkirim'));
         });
     });
     window.initLvBoardForm();
@@ -4083,7 +4360,7 @@ window.initTrafoRusakForm = function(){
         .catch(function(err){
           trSubmitting = false;
           submitBtn.disabled = false;
-          showMsg('Gagal terkirim: ' + (err && err.message ? err.message : err), 'err');
+          showMsg(window.pesanGagalKoneksi(err, 'Gagal terkirim'), 'err');
         });
   }
 
@@ -4498,7 +4775,7 @@ window.initLvBoardForm = function(){
         })
         .catch(function(err){
           submitBtn.disabled = false;
-          showMsg('Gagal terkirim: ' + (err && err.message ? err.message : err), 'err');
+          showMsg(window.pesanGagalKoneksi(err, 'Gagal terkirim'), 'err');
         });
   }
 
@@ -4852,7 +5129,7 @@ window.openGarsipPopup = function(noKey){
           })
           .catch(function(err){
             submitBtn.disabled = false;
-            showMsg('Gagal terkirim: ' + (err && err.message ? err.message : err), 'err');
+            showMsg(window.pesanGagalKoneksi(err, 'Gagal terkirim'), 'err');
           });
       });
     }
@@ -4908,6 +5185,20 @@ var RT_LADDER = [100, 160, 250, 400];
 var RT_DAYA_OPTIONS = [100, 160, 200, 250, 400];
 var RT_TRAFO_STATUS = ['TERSEDIA','DIBAWA PETUGAS','TERPASANG','DILEPAS','PEMERIKSAAN','LAYAK PAKAI','CACAT','TIDAK LAYAK','SELESAI'];
 var RT_KONDISI_KELUAR = ['LAYAK PAKAI','PERLU PEMERIKSAAN','PERLU PERBAIKAN','CACAT / BOCOR','TIDAK LAYAK'];
+/* Alasan kendala yang paling sering ditemui di lapangan, disusun dari
+   kondisi fisik dulu (paling sering), baru akses/sosial, lalu data.
+   Dipakai sebagai tombol pilih cepat supaya petugas tidak perlu mengetik
+   di lapangan — kolom alasannya tetap bisa diisi bebas. */
+var RT_ALASAN_KENDALA = [
+  'Konstruksi 1 tiang, tidak memadai untuk trafo ini',
+  'FCO terlalu dekat dengan trafo',
+  'Dudukan trafo & bautnya keropos',
+  'Ijzerwerk keropos',
+  'Tiang miring',
+  'Akses lokasi tidak memungkinkan',
+  'Ditolak warga / pemilik lahan',
+  'Data lapangan berbeda dengan data sheet'
+];
 var RT_BATAS_AMAN = 80, RT_BATAS_OVER = 100;
 var RT_MAKS_LOKASI_PER_HARI = 3;
 
@@ -4933,7 +5224,7 @@ function rtDefaultData(){
     trafoModal[p] = { items:[firstItem], activeId:'M001' };
     return { id:p, name:p };
   });
-  return { petugasList:petugasList, trafoModal:trafoModal, chains:[], seq:{} };
+  return { petugasList:petugasList, trafoModal:trafoModal, chains:[], kendala:[], seq:{} };
 }
 function rtSanitizeId(name, existingIds){
   var base = String(name||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,10);
@@ -4974,6 +5265,8 @@ function rtLoad(){
       }
     });
     if(!d.seq) d.seq = {};
+    // Data yang tersimpan sebelum fitur Kendala ada belum punya larik ini.
+    if(!d.kendala) d.kendala = [];
     return d;
   }catch(e){ return rtDefaultData(); }
 }
@@ -5100,7 +5393,7 @@ function rtDoSync(){
     })
     .catch(function(err){
       RT_SYNC_STATE.status = 'error';
-      RT_SYNC_STATE.error = err.message;
+      RT_SYNC_STATE.error = window.pesanGagalKoneksi(err);
       rtSyncBadgeApply();
     });
 }
@@ -5484,6 +5777,14 @@ function rtEvaluateCandidate(g, trafoDaya, ctx){
   if(ctx.locked[gkey]){
     return { ok:false, gardu:g, reasons:['Sedang terkunci oleh rantai lain (' + ctx.locked[gkey] + ').'] };
   }
+  // Gardu yang kendalanya masih terbuka tidak ditawarkan lagi — alasannya
+  // ikut disebut supaya jelas kenapa hilang dari daftar, bukan lenyap diam-diam.
+  if(ctx.kendala && ctx.kendala[gkey]){
+    var kd = ctx.kendala[gkey];
+    return { ok:false, gardu:g, terkendala:true, kendala:kd,
+      reasons:['Terkendala sejak ' + rtFmtTgl(kd.tanggal) + ': ' + (kd.alasan || 'tanpa keterangan') +
+               '. Buka panel Kendala Manajemen kalau sudah bisa dikerjakan lagi.'] };
+  }
   if(g.daya === trafoDaya){
     return { ok:false, gardu:g, reasons:['Daya existing sudah sama dengan trafo yang dibawa (' + trafoDaya + ' kVA) \u2014 tidak ada manfaat manajemen.'] };
   }
@@ -5543,16 +5844,42 @@ function rtEvaluateCandidate(g, trafoDaya, ctx){
     tier:tier, reasons:reasons
   };
 }
-function rtRankCandidates(trafoDaya, ctx, limit){
+/* Urutan kegentingan kondisi gardu SEKARANG: makin kecil makin genting.
+   Dipakai sebagai kunci urut utama pada daftar pilihan manual. */
+function rtPeringkatGenting(status){
+  if(status === 'OVERLOAD') return 0;
+  if(status === 'WASPADA')  return 1;
+  if(status === 'AMAN')     return 2;
+  return 3;
+}
+
+/**
+ * opsi.gentingDulu = true  -> urut: kegentingan existing, lalu hasil-aman,
+ *   penyulang, jarak. Dipakai daftar yang DIPILIH MANUAL (Ganti Gardu,
+ *   kandidat simulasi) dan pada langkah PERTAMA perencana otomatis, supaya
+ *   trafo modal mendarat di gardu yang paling genting lebih dulu.
+ * opsi.gentingDulu = false -> urutan lama (hasil-aman, penyulang, jarak).
+ *   Dipakai langkah ke-2 dan seterusnya perencana otomatis, supaya rute
+ *   harian petugas tidak melebar ke mana-mana.
+ */
+function rtRankCandidates(trafoDaya, ctx, limit, opsi){
+  var gentingDulu = !!(opsi && opsi.gentingDulu);
   var results = rtBebanList().map(function(g){ return rtEvaluateCandidate(g, trafoDaya, ctx); });
   var ok = results.filter(function(r){ return r.ok; });
   var excluded = results.filter(function(r){ return !r.ok; });
   ok.sort(function(a,b){
+    if(gentingDulu){
+      var ga = rtPeringkatGenting(a.statusExisting), gb = rtPeringkatGenting(b.statusExisting);
+      if(ga !== gb) return ga - gb;
+    }
     if(a.tier !== b.tier) return a.tier - b.tier;
     var sa = a.samePenyulang ? 0 : 1, sb = b.samePenyulang ? 0 : 1;
     if(sa !== sb) return sa - sb;
     var ja = a.jarak == null ? 9e9 : a.jarak, jb = b.jarak == null ? 9e9 : b.jarak;
     if(ja !== jb) return ja - jb;
+    /* Dalam satu band & jarak sama: yang bebannya PALING BERAT dulu.
+       (Dulu kebalikannya — menaruh yang paling ringan di atas.) */
+    if(gentingDulu) return (b.pctExisting || 0) - (a.pctExisting || 0);
     return a.pctAfter - b.pctAfter;
   });
   return {
@@ -5583,8 +5910,10 @@ function rtProposeSequence(data, petugas, startDaya, maxCount, existingChain){
     var locked = {};
     for(var k in baseLocked) locked[k] = baseLocked[k];
     for(var k2 in planLocked) locked[k2] = planLocked[k2];
-    var ctx = { realIdx:realIdx, locked:locked, refPenyulang:ref.penyulang, refLat:ref.lat, refLng:ref.lng };
-    var res = rtRankCandidates(currentDaya, ctx, 1);
+    var ctx = { realIdx:realIdx, locked:locked, kendala:rtKendalaSet(data), refPenyulang:ref.penyulang, refLat:ref.lat, refLng:ref.lng };
+    // Langkah pertama: dahulukan gardu paling genting (di sinilah trafo modal
+    // mendarat). Langkah berikutnya kembali mengutamakan jarak.
+    var res = rtRankCandidates(currentDaya, ctx, 1, { gentingDulu: i === 0 });
     if(!res.candidates.length) break;
     var cand = res.candidates[0];
     steps.push(cand);
@@ -5620,8 +5949,10 @@ function rtProposeSequenceToTarget(data, petugas, startDaya, targetOutput, maxDe
     var locked = {};
     for(var k in baseLocked) locked[k] = baseLocked[k];
     for(var k2 in planLocked) locked[k2] = planLocked[k2];
-    var ctx = { realIdx:realIdx, locked:locked, refPenyulang:ref.penyulang, refLat:ref.lat, refLng:ref.lng };
-    var res = rtRankCandidates(currentDaya, ctx, perLevel);
+    var ctx = { realIdx:realIdx, locked:locked, kendala:rtKendalaSet(data), refPenyulang:ref.penyulang, refLat:ref.lat, refLng:ref.lng };
+    // Sama seperti rtProposeSequence: kegentingan hanya menentukan di langkah
+    // pertama (path masih kosong), sesudah itu jarak yang diutamakan.
+    var res = rtRankCandidates(currentDaya, ctx, perLevel, { gentingDulu: path.length === 0 });
     for(var i=0;i<res.candidates.length;i++){
       var cand = res.candidates[i];
       var newPath = path.concat([cand]);
@@ -5809,6 +6140,22 @@ function rtCancelNode(data, chain, seqNum, alasan){
     node.catatan = node.catatan ? (node.catatan + ' | Dibatalkan: ' + alasan) : ('Dibatalkan: ' + alasan);
   }
 
+  /* Hanya node yang dibatalkan LANGSUNG oleh pengguna yang masuk kendala.
+     Node lanjutan di bawah ikut batal karena kehabisan trafo masukan —
+     gardunya sendiri tidak bermasalah, jadi tidak adil (dan menyesatkan)
+     kalau ikut dicap terkendala dan berhenti ditawarkan. */
+  if(alasan){
+    rtCatatKendala(data, {
+      noGardu: node.noGardu, penyulang: node.penyulang, alamat: node.alamat,
+      daya: node.dayaExisting, pct: node.pctExisting, konstruksi: node.konstruksi,
+      lat: node.lat, lng: node.lng,
+      alasan: alasan, sumber: 'BATAL_NODE',
+      chainId: chain.id, nodeSeq: seqNum,
+      petugas: chain.petugas, petugasNama: rtPetugasName(data, chain.petugas),
+      tanggal: node.tanggal
+    });
+  }
+
   // Rentetan: node sesudahnya ikut batal karena trafo masukannya tidak ada.
   lanjutan.forEach(function(n){
     n.statusPekerjaan = 'DIBATALKAN';
@@ -5904,31 +6251,85 @@ function rtGantiGarduCandidates(data, chain, seqNum, limit){
   var ctx = {
     realIdx: rtRealisasiIndex(),
     locked: locked,
+    kendala: rtKendalaSet(data),
     refPenyulang: acuan.penyulang,
     refLat: acuan.lat,
     refLng: acuan.lng
   };
 
-  var hasil = rtRankCandidates(node.dayaMasuk, ctx, limit || 40);
+  // Kandidat diurutkan menurut KEGENTINGAN gardu (overload dulu) — ini daftar
+  // yang dipilih manusia, dan petugas sudah tahu posisinya sendiri.
+  var hasil = rtRankCandidates(node.dayaMasuk, ctx, limit || 40, { gentingDulu:true });
+
+  // Dampak ke node berikutnya dihitung per kandidat. Node tengah TIDAK lagi
+  // dikunci pada daya existing yang sama: yang menentukan boleh/tidak adalah
+  // apakah node hilir masih sah menerima trafo keluar kandidat itu.
   var list = hasil.candidates.map(function(c){
-    c.amanRantai = (c.gardu.daya === node.dayaExisting);
+    var dampak = rtUjiNodeHilir(chain, seqNum, c.dayaKeluar);
+    c.dampakHilir = dampak;
+    c.rantaiAman = !dampak.ada || dampak.ok;
+    c.samaDenganLama = (c.gardu.daya === node.dayaExisting);
     return c;
   });
 
-  // Node tengah: hanya kandidat dengan daya existing sama yang boleh dipakai.
-  var dipakai = isTerakhir ? list : list.filter(function(c){ return c.amanRantai; });
-
-  // Yang menjaga rantai tetap utuh ditaruh di atas.
-  dipakai.sort(function(a,b){
-    var aa = a.amanRantai ? 0 : 1, bb = b.amanRantai ? 0 : 1;
-    if(aa !== bb) return aa - bb;
-    return 0;
-  });
+  // Yang tidak merusak hilir di atas; yang merusak tetap DITAMPILKAN di bawah
+  // (abu-abu) lengkap dengan sebabnya — hilang diam-diam bikin daftar tidak
+  // dipercaya. Di dalam tiap kelompok, urutan kegentingan dipertahankan.
+  var aman = list.filter(function(c){ return c.rantaiAman; });
+  var rusak = list.filter(function(c){ return !c.rantaiAman; });
+  var dipakai = aman.concat(rusak);
 
   return {
     ok: true, node: node, isTerakhir: isTerakhir,
     candidates: dipakai.slice(0, limit || 12),
+    jumlahAman: aman.length,
+    jumlahRusakHilir: rusak.length,
     totalSebelumDisaring: list.length
+  };
+}
+
+/**
+ * Menguji apakah node SESUDAH seqNum masih sah kalau trafo yang masuk ke
+ * sana berubah jadi dayaKeluarBaru.
+ *
+ * Kenapa cukup satu node: dayaKeluar sebuah node = daya existing gardu node
+ * itu sendiri, TIDAK bergantung pada trafo yang masuk. Jadi mengganti gardu
+ * node N hanya mengubah dayaMasuk node N+1; keluaran node N+1 tetap sebesar
+ * gardunya sendiri, sehingga node N+2 dan seterusnya tidak tersentuh.
+ */
+function rtUjiNodeHilir(chain, seqNum, dayaKeluarBaru){
+  var hilir = (chain.nodes||[]).filter(function(n){
+    return n.sequence > seqNum && n.statusPekerjaan !== 'DIBATALKAN';
+  })[0];
+  if(!hilir) return { ada:false, ok:true };
+
+  // Sengaja pakai daftar MENTAH: node hilir sudah direncanakan sebelumnya dan
+  // mungkin berada di luar filter kelas yang aktif sekarang.
+  var g = rtBebanListRaw().filter(function(x){
+    return x && String(x.no_gardu).toUpperCase() === String(hilir.noGardu).toUpperCase();
+  })[0];
+  if(!g){
+    return { ada:true, ok:false, node:hilir,
+      alasan:'Data gardu ' + hilir.noGardu + ' tidak ditemukan di sheet beban — tidak bisa dihitung ulang.' };
+  }
+
+  // Konteks bersih: yang diuji adalah KELAYAKAN TEKNIS node hilir menerima
+  // trafo baru, bukan apakah gardunya boleh dipilih (gardu itu memang sudah
+  // jadi bagian rantai ini, jadi kunci/realisasi/kendala tidak relevan).
+  var r = rtEvaluateCandidate(g, dayaKeluarBaru, {
+    realIdx:{}, locked:{}, kendala:{},
+    refPenyulang:hilir.penyulang, refLat:hilir.lat, refLng:hilir.lng
+  });
+
+  if(!r.ok){
+    return { ada:true, ok:false, node:hilir, gardu:g,
+      alasan:(r.reasons && r.reasons[0]) ? r.reasons[0] : 'Tidak memenuhi syarat.' };
+  }
+  return {
+    ada:true, ok:true, node:hilir, gardu:g,
+    dayaMasukBaru: dayaKeluarBaru,
+    pctAfter: r.pctAfter, statusAfter: r.statusAfter,
+    tindakan: r.tindakan, dayaKeluar: r.dayaKeluar
   };
 }
 
@@ -5951,15 +6352,15 @@ function rtGantiGarduNode(data, chain, seqNum, noGarduBaru, alasan){
   if(!cand){
     return { ok:false, reason:'Gardu "' + noGarduBaru + '" tidak (lagi) memenuhi syarat sebagai pengganti. Coba muat ulang daftar kandidatnya.' };
   }
-  if(!kandidatRes.isTerakhir && cand.gardu.daya !== node.dayaExisting){
-    return { ok:false, reason:'Node ini punya node lanjutan, jadi gardu pengganti harus berdaya existing ' + node.dayaExisting + ' kVA (gardu ini ' + cand.gardu.daya + ' kVA) supaya trafo keluarnya tetap sama dan node sesudahnya tidak jadi salah.' };
-  }
 
   var now = new Date().toISOString();
   var lama = {
     noGardu: node.noGardu, penyulang: node.penyulang, dayaExisting: node.dayaExisting,
     dayaKeluar: node.dayaKeluar, konstruksi: node.konstruksi
   };
+  // Dicatat terpisah karena field node di bawah ini akan ditimpa data gardu
+  // baru — padahal yang dibutuhkan catatan kendala adalah data gardu LAMA.
+  var lamaAlamat = node.alamat, lamaLat = node.lat, lamaLng = node.lng, lamaPct = node.pctExisting;
 
   node.noGardu = cand.gardu.no_gardu;
   node.penyulang = cand.gardu.penyulang;
@@ -5980,15 +6381,59 @@ function rtGantiGarduNode(data, chain, seqNum, noGarduBaru, alasan){
   // supaya alasan kenapa lokasi berubah ikut terbawa saat node ini dibaca.
   if(!node.riwayatGanti) node.riwayatGanti = [];
   node.riwayatGanti.push({ at: now, dariGardu: lama.noGardu, keGardu: node.noGardu, alasan: alasanBersih });
+
+  // Gardu LAMA tercatat sebagai kendala — inilah gardu yang ternyata tidak
+  // bisa dikerjakan di lapangan. Selama kendalanya terbuka, gardu ini tidak
+  // ditawarkan lagi oleh mesin simulasi.
+  rtCatatKendala(data, {
+    noGardu: lama.noGardu, penyulang: lama.penyulang, alamat: lamaAlamat,
+    daya: lama.dayaExisting, pct: lamaPct, konstruksi: lama.konstruksi,
+    lat: lamaLat, lng: lamaLng,
+    alasan: alasanBersih, sumber: 'GANTI_GARDU',
+    chainId: chain.id, nodeSeq: seqNum,
+    petugas: chain.petugas, petugasNama: rtPetugasName(data, chain.petugas),
+    tanggal: node.tanggal
+  });
   var catatanGanti = 'Gardu diganti dari ' + lama.noGardu + ' → ' + node.noGardu + ': ' + alasanBersih;
   node.catatan = node.catatan ? (node.catatan + ' | ' + catatanGanti) : catatanGanti;
 
-  // Node berikutnya mencatat trafonya datang dari gardu node ini — ikut
-  // diperbarui supaya alur "dari gardu mana ke gardu mana" tetap benar.
+  // Node berikutnya: selain mencatat asal trafo, dayaMasuk-nya DIHITUNG ULANG
+  // kalau trafo keluar node ini berubah. Riak berhenti di sini — keluaran node
+  // berikutnya tetap sebesar gardunya sendiri, jadi node sesudahnya tidak
+  // tersentuh.
   var berikutnya = (chain.nodes||[]).filter(function(n){
     return n.sequence > seqNum && n.statusPekerjaan !== 'DIBATALKAN';
   })[0];
-  if(berikutnya) berikutnya.fromGardu = node.noGardu;
+  var catatanHilir = null;
+  if(berikutnya){
+    berikutnya.fromGardu = node.noGardu;
+    if(berikutnya.dayaMasuk !== node.dayaKeluar){
+      var dayaMasukLama = berikutnya.dayaMasuk;
+      var uji = rtUjiNodeHilir(chain, seqNum, node.dayaKeluar);
+      berikutnya.dayaMasuk = node.dayaKeluar;
+      if(uji.ok){
+        berikutnya.pctAfter = uji.pctAfter;
+        berikutnya.statusAfter = uji.statusAfter;
+        berikutnya.tindakan = uji.tindakan;
+        delete berikutnya.perluTinjau;
+        catatanHilir = 'Node #' + berikutnya.sequence + ' (' + berikutnya.noGardu + ') ikut menyesuaikan: '
+          + 'trafo masuk ' + dayaMasukLama + ' → ' + node.dayaKeluar + ' kVA, hasil '
+          + rtFmtPct(uji.pctAfter) + ' (' + uji.statusAfter + ').';
+      } else {
+        // TIDAK diblokir dan TIDAK dihapus diam-diam: ditandai supaya petugas
+        // sadar node itu harus ditinjau (diganti gardunya atau dibatalkan).
+        berikutnya.perluTinjau = {
+          at: now,
+          alasan: uji.alasan,
+          dayaMasukLama: dayaMasukLama,
+          dayaMasukBaru: node.dayaKeluar,
+          dariNode: seqNum
+        };
+        catatanHilir = 'PERLU DITINJAU — node #' + berikutnya.sequence + ' (' + berikutnya.noGardu + ') '
+          + 'jadi tidak sah dengan trafo masuk ' + node.dayaKeluar + ' kVA: ' + uji.alasan;
+      }
+    }
+  }
 
   // Kalau ini node terakhir, trafo yang ada di tangan sekarang adalah trafo
   // keluar dari gardu BARU — ikut diperbarui.
@@ -6004,10 +6449,121 @@ function rtGantiGarduNode(data, chain, seqNum, noGarduBaru, alasan){
   chain.history.push({ at: now, text:'Node #' + seqNum + ' ganti gardu: ' + lama.noGardu +
     ' (' + lama.dayaExisting + ' kVA, konstruksi ' + (lama.konstruksi || '-') + ') → ' +
     node.noGardu + ' (' + node.dayaExisting + ' kVA, konstruksi ' + (node.konstruksi || '-') + '). ' +
-    'Trafo dibawa tetap ' + node.dayaMasuk + ' kVA, trafo keluar ' + node.dayaKeluar + ' kVA. Alasan: ' + alasanBersih });
+    'Trafo dibawa tetap ' + node.dayaMasuk + ' kVA, trafo keluar ' + node.dayaKeluar + ' kVA. Alasan: ' + alasanBersih +
+    (catatanHilir ? (' ' + catatanHilir) : '') });
 
   rtSave(data);
-  return { ok:true, node: node, lama: lama };
+  return { ok:true, node: node, lama: lama, catatanHilir: catatanHilir,
+           nodeHilir: berikutnya || null,
+           hilirPerluTinjau: !!(berikutnya && berikutnya.perluTinjau) };
+}
+
+/* ---------------- KENDALA MANAJEMEN ----------------
+   Daftar gardu yang sudah direncanakan tapi TIDAK JADI dikerjakan di
+   lapangan, beserta alasannya. Diisi otomatis dari dua tempat: saat
+   gardu ditukar lewat "Ganti Gardu", dan saat sebuah node ditandai
+   "Batal / Tidak Bisa".
+
+   Gardu yang kendalanya masih TERBUKA tidak akan ditawarkan lagi oleh
+   mesin simulasi — supaya petugas berikutnya tidak mendatangi lokasi
+   yang sudah diketahui gagal. Tapi gardunya TIDAK hilang: ia pindah ke
+   panel Kendala dan bisa dikembalikan kapan saja lewat tombol "Bisa
+   Dikerjakan Lagi" begitu penyebabnya beres (tiang diganti, warga
+   setuju, dan seterusnya). Pola ini sengaja sama dengan Stok/Histori di
+   Trafo Modal: barangnya dipindah, bukan dihapus — kalau disembunyikan
+   tanpa jalan kembali, gardu yang bebannya tinggi bisa lenyap dari
+   perencanaan tanpa ada yang mengingatkan. */
+function rtNextKendalaId(data){
+  var n = (data.kendala||[]).length + 1;
+  var id = 'KD-' + rtPad3(n);
+  while((data.kendala||[]).some(function(k){ return k.id === id; })){ n++; id = 'KD-' + rtPad3(n); }
+  return id;
+}
+
+/** Kendala yang masih terbuka untuk sebuah No. Gardu (null kalau tidak ada). */
+function rtKendalaTerbuka(data, noGardu){
+  var target = String(noGardu||'').trim().toUpperCase();
+  if(!target) return null;
+  return (data.kendala||[]).find(function(k){
+    return k.status !== 'SELESAI' && String(k.noGardu||'').trim().toUpperCase() === target;
+  }) || null;
+}
+
+/** Peta { NO_GARDU: kendala } untuk seluruh kendala yang masih terbuka. */
+function rtKendalaSet(data){
+  var set = {};
+  (data.kendala||[]).forEach(function(k){
+    if(k.status === 'SELESAI') return;
+    set[String(k.noGardu||'').trim().toUpperCase()] = k;
+  });
+  return set;
+}
+
+/**
+ * Mencatat satu kendala. Dipanggil dari alur Ganti Gardu & Batal Node.
+ * Kalau gardu itu sudah punya kendala terbuka, alasannya ditambahkan ke
+ * catatan kendala yang ada — bukan membuat baris kembar, supaya satu
+ * gardu tetap satu baris di panel.
+ */
+function rtCatatKendala(data, opts){
+  var noGardu = String(opts.noGardu||'').trim();
+  if(!noGardu) return null;
+  var now = new Date().toISOString();
+  var sudahAda = rtKendalaTerbuka(data, noGardu);
+  if(sudahAda){
+    sudahAda.riwayat = sudahAda.riwayat || [];
+    sudahAda.riwayat.push({ at:now, alasan:opts.alasan||'', sumber:opts.sumber||'' });
+    sudahAda.alasan = opts.alasan || sudahAda.alasan;
+    sudahAda.at = now;
+    return sudahAda;
+  }
+  var k = {
+    id: rtNextKendalaId(data),
+    noGardu: noGardu,
+    penyulang: opts.penyulang || '',
+    alamat: opts.alamat || '',
+    daya: opts.daya != null ? opts.daya : null,
+    pct: opts.pct != null ? opts.pct : null,
+    konstruksi: opts.konstruksi || '',
+    lat: opts.lat != null ? opts.lat : null,
+    lng: opts.lng != null ? opts.lng : null,
+    alasan: opts.alasan || '',
+    sumber: opts.sumber || '',
+    chainId: opts.chainId || '',
+    nodeSeq: opts.nodeSeq != null ? opts.nodeSeq : null,
+    petugas: opts.petugas || '',
+    petugasNama: opts.petugasNama || '',
+    tanggal: opts.tanggal || now.slice(0,10),
+    at: now,
+    status: 'TERBUKA',
+    selesaiAt: null,
+    selesaiCatatan: '',
+    riwayat: [{ at:now, alasan:opts.alasan||'', sumber:opts.sumber||'' }]
+  };
+  data.kendala = data.kendala || [];
+  data.kendala.push(k);
+  return k;
+}
+
+/** Menutup kendala — gardunya kembali bisa ditawarkan mesin simulasi. */
+function rtSelesaikanKendala(data, kendalaId, catatan){
+  var k = (data.kendala||[]).find(function(x){ return x.id === kendalaId; });
+  if(!k) return { ok:false, reason:'Kendala tidak ditemukan.' };
+  if(k.status === 'SELESAI') return { ok:false, reason:'Kendala ini sudah ditandai selesai sebelumnya.' };
+  k.status = 'SELESAI';
+  k.selesaiAt = new Date().toISOString();
+  k.selesaiCatatan = String(catatan||'').trim();
+  rtSave(data);
+  return { ok:true, kendala:k };
+}
+
+/** Menghapus satu baris kendala sepenuhnya (mis. salah catat). */
+function rtHapusKendala(data, kendalaId){
+  var sebelum = (data.kendala||[]).length;
+  data.kendala = (data.kendala||[]).filter(function(x){ return x.id !== kendalaId; });
+  if(data.kendala.length === sebelum) return { ok:false, reason:'Kendala tidak ditemukan.' };
+  rtSave(data);
+  return { ok:true };
 }
 
 function rtCancelChain(data, chain){
@@ -6196,13 +6752,16 @@ function rtBuildSpkHtml(data, filters){
   var rows = rtKumpulkanBarisJadwal(data, filters);
   var namaVendor = rtPetugasName(data, filters.petugas) || filters.petugas;
 
-  var tanggalList = rows.map(function(r){ return r.node.tanggal; })
-    .filter(function(t){ return !!t; }).sort();
-  var rentang = tanggalList.length
-    ? (tanggalList[0] === tanggalList[tanggalList.length-1]
-        ? rtFmtTglDash(tanggalList[0])
-        : (rtFmtTglDash(tanggalList[0]) + ' s/d ' + rtFmtTglDash(tanggalList[tanggalList.length-1])))
-    : '–';
+  // Tanggal pelaksanaan per lokasi sudah ada di kolom tabel jadwal, jadi di
+  // kepala dokumen yang dipakai adalah TANGGAL CETAK — penanda kapan lembar
+  // ini dikeluarkan, supaya kalau ada dua cetakan beredar di lapangan
+  // ketahuan mana yang terbaru.
+  // Sengaja TIDAK memakai toISOString() — itu waktu UTC, dan di WITA (UTC+8)
+  // cetakan sebelum pukul 08.00 pagi akan tertulis tanggal kemarin.
+  var hariIni = new Date();
+  var pad2 = function(n){ return (n < 10 ? '0' : '') + n; };
+  var tanggalCetak = rtFmtTglDash(
+    hariIni.getFullYear() + '-' + pad2(hariIni.getMonth()+1) + '-' + pad2(hariIni.getDate()));
 
   var rantaiIds = [];
   rows.forEach(function(r){ if(rantaiIds.indexOf(r.chain.id) === -1) rantaiIds.push(r.chain.id); });
@@ -6220,7 +6779,6 @@ function rtBuildSpkHtml(data, filters){
     var vendor = n.carriedByName || rtPetugasName(data, c.petugas) || '';
     return '<tr>' +
       '<td class="c">' + (i+1) + '</td>' +
-      '<td class="c nowrap">' + esc(rtFmtTglDash(n.tanggal)) + '</td>' +
       '<td>' + esc(n.penyulang || '') + '</td>' +
       '<td class="isi"></td>' +
       '<td>Management Trafo</td>' +
@@ -6257,7 +6815,7 @@ function rtBuildSpkHtml(data, filters){
   }).join('');
 
   return '<!DOCTYPE html><html lang="id"><head><meta charset="utf-8">' +
-    '<title>SPK Manajemen Trafo — ' + esc(namaVendor) + '</title><style>' +
+    '<title>Jadwal Kerja Lapangan — ' + esc(namaVendor) + '</title><style>' +
     '@page{ size:A4 landscape; margin:10mm; }' +
     'body{ font-family:"Segoe UI",Arial,sans-serif; color:#12203A; margin:14mm; font-size:11px; }' +
     '.bar{ margin:-6mm 0 10mm; }' +
@@ -6296,17 +6854,16 @@ function rtBuildSpkHtml(data, filters){
     '@media print{ .bar{ display:none; } body{ margin:0; } }' +
     '</style></head><body>' +
     '<div class="bar"><button onclick="window.print()">Cetak / Simpan sebagai PDF</button></div>' +
-    '<h1>SURAT PERINTAH KERJA — MANAJEMEN TRAFO DISTRIBUSI</h1>' +
+    '<h1>JADWAL KERJA LAPANGAN — MANAJEMEN TRAFO DISTRIBUSI</h1>' +
     '<p class="sub-h">PT PLN (Persero) · ULP Kuta Bali Selatan</p>' +
     '<table class="meta">' +
     '<tr><td>Pelaksana / Vendor</td><td>' + esc(namaVendor) + '</td>' +
         '<td style="color:#4B5768;width:120px;">Jumlah lokasi</td><td style="font-weight:700;">' + rows.length + ' lokasi</td></tr>' +
-    '<tr><td>Tanggal pelaksanaan</td><td>' + esc(rentang) + '</td>' +
+    '<tr><td>Tanggal cetak</td><td>' + esc(tanggalCetak) + '</td>' +
         '<td style="color:#4B5768;">Rantai</td><td style="font-weight:700;">' + esc(rantaiIds.join(', ') || '–') + '</td></tr>' +
     '</table>' +
-    '<h2 class="judul-tabel">Jadwal Kerja Lapangan</h2>' +
-    '<table class="data jadwal"><thead><tr>' +
-    '<th style="width:26px;">NO</th><th style="width:74px;">Tanggal Pelaksanaan</th><th style="width:88px;">Penyulang</th>' +
+    '<table class="data jadwal" style="margin-top:6mm;"><thead><tr>' +
+    '<th style="width:26px;">NO</th><th style="width:96px;">Penyulang</th>' +
     '<th style="width:74px;">Section Jaringan</th><th style="width:96px;">Kategori</th>' +
     '<th style="width:120px;">Deskripsi Kegiatan</th><th style="width:110px;">Vendor</th>' +
     '<th style="width:118px;">x &amp; y</th><th style="width:48px;">JAM</th><th>GARDU PADAM</th>' +
@@ -6332,7 +6889,7 @@ function rtBuildSpkHtml(data, filters){
 
 function rtCetakSpk(data, filters){
   if(!filters.petugas || filters.petugas === 'SEMUA'){
-    alert('Pilih dulu kartu petugas/vendor yang mau dicetak SPK-nya (klik kartunya di atas), supaya isinya cuma untuk vendor itu.');
+    alert('Pilih dulu kartu petugas/vendor yang mau dicetak jadwalnya (klik kartunya di atas), supaya isinya cuma untuk vendor itu.');
     return;
   }
   var rows = rtKumpulkanBarisJadwal(data, filters);
@@ -6483,7 +7040,31 @@ window.PORTAL_CSS_RANTAI = "\n" +
 ".rt-node .actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px;align-items:center;}\n" +
 ".rt-node select{padding:6px 9px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:11.5px;background:#fff;}\n" +
 ".rt-node.cancelled{opacity:.72;background:#F7F4F1;}\n" +
+".rt-kd-badge{font-size:10px;font-weight:800;color:#8A3B3B;background:#FDECEC;border:1px solid #F3C9C6;border-radius:999px;padding:3px 9px;white-space:nowrap;}\n" +
+".rt-kd-item{border:1px solid var(--border);border-left:3px solid var(--overload);border-radius:12px;padding:12px 14px;margin-top:10px;background:var(--panel);}\n" +
+".rt-kd-item.selesai{border-left-color:var(--aman);opacity:.78;background:#F7FBF8;}\n" +
+".rt-kd-head{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;}\n" +
+".rt-kd-gardu{font-size:14px;font-weight:800;letter-spacing:-.01em;}\n" +
+".rt-kd-sub{font-size:10.5px;color:var(--text-faint);font-weight:600;}\n" +
+".rt-kd-ulang{font-size:9.5px;font-weight:800;color:#8A3B3B;background:#FDECEC;border-radius:999px;padding:2px 7px;}\n" +
+".rt-kd-alasan{margin:7px 0 5px;font-size:12px;font-weight:700;color:var(--text);line-height:1.5;}\n" +
+".rt-kd-meta{font-size:10px;color:var(--text-faint);line-height:1.55;margin-bottom:9px;}\n" +
+".rt-kd-done{font-size:11px;font-weight:700;color:var(--aman);}\n" +
+"@media (max-width:720px){.rt-kd-item .actions{flex-wrap:wrap;}}\n" +
 ".rt-node-ganti{margin:8px 0 0;padding:8px 10px;background:#FFF6E8;border:1px solid #F0D8B0;border-radius:9px;font-size:11px;font-weight:600;color:#7A5320;line-height:1.55;}\n" +
+/* --- Ganti Gardu: band kegentingan, dampak node hilir, node perlu tinjau --- */
+".rt-band{display:flex;align-items:center;gap:8px;margin:14px 0 7px;font-size:10.5px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;color:var(--text-dim);}\n" +
+".rt-band::after{content:'';flex:1 1 auto;height:1px;background:var(--line);}\n" +
+".rt-band span{font-weight:700;letter-spacing:0;text-transform:none;color:var(--text-faint);}\n" +
+".rt-band.OVERLOAD{color:#B3261E;}\n" +
+".rt-band.WASPADA{color:#8A5A00;}\n" +
+".rt-hilir{margin:0 0 8px;padding:7px 9px;border-radius:8px;font-size:11px;line-height:1.55;font-weight:600;}\n" +
+".rt-hilir.ok{background:#EAF6EE;border:1px solid #BFE0CB;color:#1E5B33;}\n" +
+".rt-hilir.rusak{background:#FDECEA;border:1px solid #F3C2BC;color:#8C1D18;}\n" +
+".rt-cand.rt-cand-tinjau{opacity:.72;border-style:dashed;}\n" +
+".rt-cand.rt-cand-tinjau:hover{opacity:1;}\n" +
+".rt-node.perlu-tinjau{border-color:#E8A33D;box-shadow:0 0 0 1px #E8A33D inset;}\n" +
+".rt-node-tinjau{margin:8px 0 0;padding:8px 10px;background:#FDECEA;border:1px solid #F3C2BC;border-radius:9px;font-size:11px;font-weight:700;color:#8C1D18;line-height:1.55;}\n" +
 ".rt-node-ganti b{font-weight:800;}\n" +
 ".rt-alasan-chips{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 12px;}\n" +
 ".rt-alasan-chip{font-family:var(--disp);font-size:10.5px;font-weight:700;color:var(--text-dim);background:var(--panel);border:1px solid var(--border);border-radius:999px;padding:5px 11px;cursor:pointer;}\n" +
@@ -6546,7 +7127,9 @@ window.renderRantaiPage = function(){
     filterPetugas:'SEMUA', filterDaya:'SEMUA', filterStatus:'SEMUA', filterPenyulang:'',
     modal: null, /* {mode:'sim'|'ganti'|'editmodal'|'addpetugas', ...payload} */
     materialTab: 'stok',
-    modalPanelOpen: false, /* 'stok' (belum terpasang) atau 'histori' (sudah terpasang) di popup Stok */
+    modalPanelOpen: false,
+    kendalaOpen: false,
+    kendalaTab: 'terbuka', /* 'stok' (belum terpasang) atau 'histori' (sudah terpasang) di popup Stok */
     kelasFilterOpen: false /* dropdown "Kelas Aset" di filter bar sedang kebuka atau tidak */
   };
 
@@ -6648,6 +7231,71 @@ window.renderRantaiPage = function(){
       '</div>';
   }
 
+  /* Panel Kendala Manajemen — daftar gardu yang sudah direncanakan tapi
+     tidak jadi dikerjakan, beserta alasannya. Selama kendalanya terbuka,
+     gardu-gardu ini tidak ditawarkan lagi oleh mesin simulasi; tombol
+     "Bisa Dikerjakan Lagi" mengembalikannya ke daftar kandidat. */
+  function kendalaPanelHtml(){
+    var semua = data.kendala || [];
+    var terbuka = semua.filter(function(k){ return k.status !== 'SELESAI'; });
+    var selesai = semua.filter(function(k){ return k.status === 'SELESAI'; });
+    var tabAktif = ui.kendalaTab === 'selesai' ? 'selesai' : 'terbuka';
+    var tampil = tabAktif === 'selesai' ? selesai : terbuka;
+
+    function barisHtml(k){
+      var sumberLabel = k.sumber === 'GANTI_GARDU' ? 'Diganti gardu lain'
+                      : k.sumber === 'BATAL_NODE' ? 'Dibatalkan di lapangan' : '\u2013';
+      var berulang = (k.riwayat && k.riwayat.length > 1)
+        ? ('<span class="rt-kd-ulang">' + k.riwayat.length + '\u00d7 terkendala</span>') : '';
+      return '<div class="rt-kd-item' + (k.status === 'SELESAI' ? ' selesai' : '') + '">' +
+        '<div class="rt-kd-head">' +
+          '<span class="rt-kd-gardu">' + esc(k.noGardu) + '</span>' +
+          '<span class="rt-kd-sub">' + esc(k.penyulang || '\u2013') + (k.daya != null ? (' \u00b7 ' + rtFmtKva(k.daya)) : '') +
+            (k.pct != null ? (' \u00b7 beban ' + rtFmtPct(k.pct)) : '') +
+            (k.konstruksi ? (' \u00b7 ' + esc(k.konstruksi)) : '') + '</span>' +
+          berulang +
+        '</div>' +
+        '<div class="rt-kd-alasan">' + esc(k.alasan || 'Tanpa keterangan') + '</div>' +
+        '<div class="rt-kd-meta">' + esc(sumberLabel) + ' \u00b7 ' + rtFmtTgl(k.tanggal) +
+          (k.petugasNama ? (' \u00b7 ' + esc(k.petugasNama)) : '') +
+          (k.chainId ? (' \u00b7 ' + esc(k.chainId) + (k.nodeSeq != null ? (' #' + k.nodeSeq) : '')) : '') +
+          (k.alamat ? ('<br>' + esc(k.alamat)) : '') +
+        '</div>' +
+        (k.status === 'SELESAI'
+          ? ('<div class="rt-kd-done">\u2713 Selesai ' + rtFmtTgl(String(k.selesaiAt||'').slice(0,10)) +
+             (k.selesaiCatatan ? (' \u2014 ' + esc(k.selesaiCatatan)) : '') + '</div>')
+          : ('<div class="actions">' +
+             '<button class="btn primary small" data-act="kdselesai" data-id="' + esc(k.id) + '">Bisa Dikerjakan Lagi</button>' +
+             '<button class="btn small danger" data-act="kdhapus" data-id="' + esc(k.id) + '">Hapus Catatan</button>' +
+             '</div>')) +
+        '</div>';
+    }
+
+    var isiHtml = tampil.length
+      ? tampil.map(barisHtml).join('')
+      : ('<div class="rt-emptychain">' + (tabAktif === 'selesai'
+          ? 'Belum ada kendala yang ditandai selesai.'
+          : 'Belum ada gardu yang terkendala. Kendala tercatat otomatis saat Anda menukar gardu lewat \u201cGanti Gardu\u201d atau menandai node \u201cBatal / Tidak Bisa\u201d.') + '</div>');
+
+    return '<div class="panel">' +
+      '<div class="rt-panelhead" id="rtKendalaHead"><div><h3>Kendala Manajemen</h3>' +
+      '<div class="desc">' + (ui.kendalaOpen
+        ? 'Gardu yang sudah direncanakan tapi tidak jadi dikerjakan di lapangan. Selama kendalanya masih terbuka, gardu ini TIDAK ditawarkan lagi saat menyusun rantai \u2014 supaya petugas berikutnya tidak mendatangi lokasi yang sudah diketahui gagal. Tekan \u201cBisa Dikerjakan Lagi\u201d begitu penyebabnya beres (tiang diganti, warga setuju, dan seterusnya) untuk mengembalikannya ke daftar kandidat.'
+        : 'Gardu yang tidak jadi dikerjakan beserta alasannya \u2014 sementara dikeluarkan dari daftar kandidat rantai.') +
+      '</div></div>' +
+      '<div style="display:flex;gap:8px;align-items:center;">' +
+        (terbuka.length ? ('<span class="rt-kd-badge">' + terbuka.length + ' terbuka</span>') : '') +
+        '<button class="btn small" id="rtKendalaToggle">' + (ui.kendalaOpen ? 'Tutup' : 'Buka') + '</button>' +
+      '</div></div>' +
+      (ui.kendalaOpen ? (
+        '<div class="mp-tabs" style="margin-top:12px;">' +
+        '<button class="mp-tab' + (tabAktif === 'terbuka' ? ' active' : '') + '" data-act="kdtabterbuka" type="button">Terbuka<span class="cnt">' + terbuka.length + '</span></button>' +
+        '<button class="mp-tab' + (tabAktif === 'selesai' ? ' active' : '') + '" data-act="kdtabselesai" type="button">Selesai<span class="cnt">' + selesai.length + '</span></button>' +
+        '</div>' + isiHtml
+      ) : '') +
+      '</div>';
+  }
+
   function kelasFilterHtml(){
     var avail = rtAvailableKelasList();
     if(!avail.length) return '';
@@ -6682,7 +7330,7 @@ window.renderRantaiPage = function(){
       '<input type="text" id="rtFPenyulang" placeholder="Cari penyulang\u2026" value="' + esc(ui.filterPenyulang) + '">' +
       kelasFilterHtml() +
       '<button class="btn small" id="rtDownloadJadwal">\u2193 Unduh Jadwal (.csv) \u2014 ' + esc(ui.selectedPetugas ? rtPetugasName(data, ui.selectedPetugas) : 'pilih kartu dulu') + '</button>' +
-      '<button class="btn small" id="rtCetakSpk">\u2399 Cetak SPK \u2014 ' + esc(ui.selectedPetugas ? rtPetugasName(data, ui.selectedPetugas) : 'pilih kartu dulu') + '</button>' +
+      '<button class="btn small" id="rtCetakSpk">\u2399 Cetak Jadwal \u2014 ' + esc(ui.selectedPetugas ? rtPetugasName(data, ui.selectedPetugas) : 'pilih kartu dulu') + '</button>' +
       '<span class="result-count" id="rtResultCount"></span>' +
       '</div>';
   }
@@ -6716,7 +7364,16 @@ window.renderRantaiPage = function(){
           return '<div>\u21c4 Diganti dari <b>' + esc(h.dariGardu) + '</b>: ' + esc(h.alasan) + '</div>';
         }).join('') + '</div>')
       : '';
-    return '<div class="rt-node' + (isCancelled ? ' cancelled' : '') + '">' +
+    // Node yang trafo masuknya berubah gara-gara node sebelumnya diganti, dan
+    // jadi tidak sah. Ditandai jelas — tidak dihapus diam-diam, karena yang
+    // memutuskan mau diganti atau dibatalkan adalah petugas.
+    var tinjauHtml = node.perluTinjau
+      ? ('<div class="rt-node-tinjau">\u26a0 PERLU DITINJAU \u2014 trafo masuk berubah ' +
+         rtFmtKva(node.perluTinjau.dayaMasukLama) + ' \u2192 ' + rtFmtKva(node.perluTinjau.dayaMasukBaru) +
+         ' karena node #' + node.perluTinjau.dariNode + ' diganti. ' + esc(node.perluTinjau.alasan) +
+         ' Ganti gardu node ini atau batalkan.</div>')
+      : '';
+    return '<div class="rt-node' + (isCancelled ? ' cancelled' : '') + (node.perluTinjau ? ' perlu-tinjau' : '') + '">' +
       '<div class="hd">' +
       '<div><div class="gnum">#' + node.sequence + ' \u00b7 ' + esc(node.noGardu) + '</div>' +
       '<div class="sub">' + esc(node.penyulang || '\u2013') + ' \u00b7 ' + esc(node.alamat || '\u2013') + ' \u00b7 ' + rtFmtTgl(node.tanggal) + (node.carriedByName ? (' \u00b7 ' + esc(node.carriedByName)) : '') + '</div></div>' +
@@ -6731,7 +7388,7 @@ window.renderRantaiPage = function(){
       '<span class="rt-mini">Status pekerjaan<b>' + esc(node.statusPekerjaan) + '</b></span>' +
       '<span class="rt-mini">Konstruksi<b>' + esc(node.konstruksi || '\u2013') + '</b></span>' +
       '</div>' +
-      gantiHistHtml +
+      tinjauHtml + gantiHistHtml +
       '<label class="rt-node-catatan">Keterangan<input type="text" data-act="catatan" data-seq="' + node.sequence + '" placeholder="Catatan/keterangan untuk node ini (opsional)\u2026" value="' + esc(node.catatan || '') + '"></label>' +
       '<div class="actions">' +
       kondisiHtml +
@@ -6900,7 +7557,7 @@ window.renderRantaiPage = function(){
       // ---- masing-masing dengan tombol "Cari Rantai untuk Perbaiki Gardu Ini".
       var garsipHtml = '';
       if(!fixInfo){
-        var ctxGarsip = { realIdx: rtRealisasiIndex(), locked: rtLockedGarduSet(data, chainForPetugas ? chainForPetugas.id : null), refPenyulang:null, refLat:null, refLng:null };
+        var ctxGarsip = { realIdx: rtRealisasiIndex(), locked: rtLockedGarduSet(data, chainForPetugas ? chainForPetugas.id : null), kendala: rtKendalaSet(data), refPenyulang:null, refLat:null, refLng:null };
         var garsipList = rtBebanList()
           .map(function(g){ return rtEvaluateCandidate(g, m.daya, ctxGarsip); })
           .filter(function(r){ return !r.ok && r.garsip; })
@@ -6960,26 +7617,45 @@ window.renderRantaiPage = function(){
       var ggNode = ggRes.node;
 
       // Alasan cepat — satu klik mengisi kolom alasan, tetap bisa diubah.
-      var alasanCepat = [
-        'Konstruksi 1 tiang, tidak memadai untuk trafo ini',
-        'FCO terlalu dekat / jarak aman tidak terpenuhi',
-        'Akses lokasi tidak memungkinkan',
-        'Data lapangan berbeda dengan data sheet',
-        'Ditolak warga / pemilik lahan'
-      ];
+      var alasanCepat = RT_ALASAN_KENDALA;
       var chipsHtml = alasanCepat.map(function(a){
         return '<button class="rt-alasan-chip" type="button" data-act="alasancepat" data-alasan="' + esc(a) + '">' + esc(a) + '</button>';
       }).join('');
 
+      // Daftar diurut kegentingan, jadi judul band dipasang tiap kali
+      // statusnya berganti — supaya terlihat batas OVERLOAD / WASPADA.
+      var bandTerakhir = null;
       var ggListHtml = ggRes.candidates.length ? ggRes.candidates.map(function(c, idx){
         var sama = c.gardu.daya === ggNode.dayaExisting;
-        return '<div class="rt-cand">' +
+        var d = c.dampakHilir || { ada:false, ok:true };
+        var kepalaBand = '';
+        if(c.statusExisting !== bandTerakhir){
+          bandTerakhir = c.statusExisting;
+          var jml = ggRes.candidates.filter(function(x){ return x.statusExisting === c.statusExisting; }).length;
+          kepalaBand = '<div class="rt-band ' + esc(c.statusExisting) + '">' + esc(c.statusExisting) +
+            ' <span>' + jml + ' gardu</span></div>';
+        }
+
+        // Baris dampak ke node berikutnya — inilah yang dulu disembunyikan
+        // di balik aturan "kVA harus sama".
+        var hilirHtml = '';
+        if(d.ada){
+          hilirHtml = d.ok
+            ? ('<div class="rt-hilir ok">Node #' + d.node.sequence + ' (' + esc(d.node.noGardu) + ') ikut menyesuaikan: ' +
+               'trafo masuk ' + rtFmtKva(d.node.dayaMasuk) + ' → <b>' + rtFmtKva(d.dayaMasukBaru) + '</b>, ' +
+               'hasil <b>' + rtFmtPct(d.pctAfter) + '</b> (' + esc(d.statusAfter) + '), ' + esc(d.tindakan) + '. ' +
+               'Node sesudahnya tidak berubah.</div>')
+            : ('<div class="rt-hilir rusak">Node #' + d.node.sequence + ' (' + esc(d.node.noGardu) + ') jadi TIDAK SAH kalau ini dipakai: ' +
+               esc(d.alasan) + ' Boleh tetap dipilih, tapi node itu harus ikut diganti atau dibatalkan.</div>');
+        }
+
+        return kepalaBand + '<div class="rt-cand' + (c.rantaiAman ? '' : ' rt-cand-tinjau') + '">' +
           '<div class="hd">' +
           '<span class="rt-cand-rank">Pilihan ' + (idx+1) + '</span>' +
           '<span class="g">' + esc(c.gardu.no_gardu) + '</span>' +
           '<span class="rt-jbadge ' + c.tindakan + '">' + c.tindakan + ' ' + c.gardu.daya + '→' + c.targetDaya + '</span>' +
-          (sama ? '<span class="rt-badge aktif">Trafo keluar sama (' + rtFmtKva(c.dayaKeluar) + ') — rantai utuh</span>'
-                : '<span class="rt-badge proses">Trafo keluar berubah jadi ' + rtFmtKva(c.dayaKeluar) + '</span>') +
+          (sama ? '<span class="rt-badge aktif">Trafo keluar tetap ' + rtFmtKva(c.dayaKeluar) + '</span>'
+                : '<span class="rt-badge proses">Trafo keluar jadi ' + rtFmtKva(c.dayaKeluar) + '</span>') +
           '</div>' +
           '<div class="rt-flow" style="margin:6px 0;">' +
           '<span class="rt-mini">Penyulang<b>' + esc(c.gardu.penyulang || '–') + '</b></span>' +
@@ -6989,15 +7665,22 @@ window.renderRantaiPage = function(){
           (c.jarak != null ? ('<span class="rt-mini">Jarak<b>' + rtFmtKm(c.jarak) + '</b></span>') : '') +
           '</div>' +
           '<div style="font-size:11px;color:var(--text-faint);margin-bottom:8px;">' + esc(c.gardu.alamat || '–') + '</div>' +
-          '<div class="actions"><button class="btn primary small" data-act="pickgantigardu" data-gardu="' + esc(c.gardu.no_gardu) + '" data-seq="' + ggNode.sequence + '">Pakai Gardu Ini</button></div>' +
+          hilirHtml +
+          '<div class="actions"><button class="btn ' + (c.rantaiAman ? 'primary' : 'ghost') + ' small" ' +
+            'data-act="pickgantigardu" data-gardu="' + esc(c.gardu.no_gardu) + '" data-seq="' + ggNode.sequence + '"' +
+            (c.rantaiAman ? '' : ' data-rusakhilir="1" data-hilirseq="' + d.node.sequence + '" data-hilirgardu="' + esc(d.node.noGardu) + '" data-hiliralasan="' + esc(d.alasan) + '"') +
+            '>' + (c.rantaiAman ? 'Pakai Gardu Ini' : 'Pakai & Tinjau Node #' + d.node.sequence) + '</button></div>' +
           '</div>';
-      }).join('') : ('<div class="empty-state">Tidak ada gardu pengganti yang memenuhi syarat untuk trafo ' + rtFmtKva(ggNode.dayaMasuk) + ' saat ini' +
-          (ggRes.isTerakhir ? '' : ' dengan daya existing ' + ggNode.dayaExisting + ' kVA') +
-          '. Kalau lokasi ini memang tidak bisa dikerjakan, pakai tombol “Batal / Tidak Bisa” di node tersebut.</div>');
+      }).join('') : ('<div class="empty-state">Tidak ada gardu pengganti yang memenuhi syarat untuk trafo ' + rtFmtKva(ggNode.dayaMasuk) + ' saat ini. ' +
+          'Kalau lokasi ini memang tidak bisa dikerjakan, pakai tombol “Batal / Tidak Bisa” di node tersebut.</div>');
 
       var syaratHtml = ggRes.isTerakhir
-        ? '<div class="rt-alert">Ini node <b>terakhir</b> dalam rantai, jadi gardu pengganti bebas — trafo keluarnya boleh berbeda karena belum ada node sesudahnya.</div>'
-        : ('<div class="rt-alert">Node ini punya node lanjutan, jadi daftar di bawah dibatasi hanya gardu berdaya existing <b>' + ggNode.dayaExisting + ' kVA</b> — supaya trafo yang KELUAR tetap ' + rtFmtKva(ggNode.dayaKeluar) + ' dan node #' + (ggNode.sequence+1) + ' dan sesudahnya tidak jadi salah.</div>');
+        ? '<div class="rt-alert">Ini node <b>terakhir</b> dalam rantai, jadi gardu pengganti bebas — trafo yang Anda bawa pulang mengikuti gardu yang dipilih.</div>'
+        : ('<div class="rt-alert">Daya existing gardu pengganti <b>tidak harus sama</b>. Kalau berbeda, trafo keluar node ini ikut berubah dan ' +
+           '<b>node #' + (ggNode.sequence+1) + '</b> dihitung ulang — dampaknya ditulis di tiap pilihan di bawah. ' +
+           'Node sesudah itu tidak tersentuh, karena trafo keluar sebuah node ditentukan gardunya sendiri.' +
+           (ggRes.jumlahRusakHilir ? (' ' + ggRes.jumlahRusakHilir + ' pilihan ditandai perlu tinjauan karena membuat node berikutnya tidak sah.') : '') +
+           '</div>');
 
       return '<div class="modal-overlay open" id="rtModalOverlay"><div class="modal">' +
         '<div class="modal-head"><div><h2>Ganti Gardu — Node #' + ggNode.sequence + '</h2>' +
@@ -7023,7 +7706,7 @@ window.renderRantaiPage = function(){
         '<div class="rt-alasan-chips">' + chipsHtml + '</div>' +
 
         syaratHtml +
-        '<div style="font-size:11.5px;font-weight:800;color:var(--text-dim);margin:14px 0 8px;">Gardu pengganti yang cocok (' + ggRes.candidates.length + ')</div>' +
+        '<div style="font-size:11.5px;font-weight:800;color:var(--text-dim);margin:14px 0 8px;">Gardu pengganti — diurut dari yang paling genting (' + ggRes.candidates.length + ')</div>' +
         ggListHtml +
         '</div></div>';
     }
@@ -7232,6 +7915,7 @@ window.renderRantaiPage = function(){
       '</div></header>' +
       dashboardHtml() +
       trafoModalPanelHtml() +
+      kendalaPanelHtml() +
       filterBarHtml() +
       '<div id="rtWorkspace">' + workspaceHtml() + '</div>' +
       allChainsHtml() +
@@ -7391,6 +8075,50 @@ window.renderRantaiPage = function(){
     var toggleBtn = document.getElementById('rtModalToggle');
     if(toggleBtn) toggleBtn.addEventListener('click', function(){ ui.modalPanelOpen = !ui.modalPanelOpen; paint(); });
 
+    /* ---- Panel Kendala Manajemen ---- */
+    var kdToggle = document.getElementById('rtKendalaToggle');
+    if(kdToggle) kdToggle.addEventListener('click', function(e){
+      e.stopPropagation();
+      ui.kendalaOpen = !ui.kendalaOpen; paint();
+    });
+    var kdHead = document.getElementById('rtKendalaHead');
+    if(kdHead) kdHead.addEventListener('click', function(){ ui.kendalaOpen = !ui.kendalaOpen; paint(); });
+    root.querySelectorAll('[data-act="kdtabterbuka"]').forEach(function(el){
+      el.addEventListener('click', function(e){ e.stopPropagation(); ui.kendalaTab = 'terbuka'; paint(); });
+    });
+    root.querySelectorAll('[data-act="kdtabselesai"]').forEach(function(el){
+      el.addEventListener('click', function(e){ e.stopPropagation(); ui.kendalaTab = 'selesai'; paint(); });
+    });
+    root.querySelectorAll('[data-act="kdselesai"]').forEach(function(el){
+      el.addEventListener('click', function(e){
+        e.stopPropagation();
+        var id = el.getAttribute('data-id');
+        var k = (data.kendala||[]).find(function(x){ return x.id === id; });
+        if(!k) return;
+        if(!confirm('Tandai kendala di ' + k.noGardu + ' sudah selesai?\n\n' +
+                    'Gardu ini akan kembali ditawarkan saat menyusun rantai.')) return;
+        var catatan = prompt('Apa yang sudah dikerjakan sehingga gardu ini bisa dikerjakan lagi? (opsional)', '');
+        if(catatan === null) return;
+        var res = rtSelesaikanKendala(data, id, catatan);
+        if(!res.ok){ alert(res.reason); return; }
+        paint();
+      });
+    });
+    root.querySelectorAll('[data-act="kdhapus"]').forEach(function(el){
+      el.addEventListener('click', function(e){
+        e.stopPropagation();
+        var id = el.getAttribute('data-id');
+        var k = (data.kendala||[]).find(function(x){ return x.id === id; });
+        if(!k) return;
+        if(!confirm('Hapus catatan kendala di ' + k.noGardu + '?\n\n' +
+                    'Dipakai kalau catatannya memang salah. Kalau kendalanya sudah beres di lapangan, ' +
+                    'pakai \u201cBisa Dikerjakan Lagi\u201d supaya riwayatnya tetap tersimpan.')) return;
+        var res = rtHapusKendala(data, id);
+        if(!res.ok){ alert(res.reason); return; }
+        paint();
+      });
+    });
+
     root.querySelectorAll('[data-act="editmodal"]').forEach(function(el){
       el.addEventListener('click', function(){ ui.modal = { mode:'editmodal', petugas: el.getAttribute('data-petugas') }; paint(); });
     });
@@ -7477,8 +8205,8 @@ window.renderRantaiPage = function(){
           });
         }).catch(function(err){
           restoreBtn.disabled = false;
-          restorePanel.innerHTML = '<div class="rt-recover-panel err">Gagal mengambil dari Sheets: ' +
-            esc(err && err.message ? err.message : String(err)) + '</div>';
+          restorePanel.innerHTML = '<div class="rt-recover-panel err">' +
+            esc(window.pesanGagalKoneksi(err, 'Gagal mengambil dari Sheets')) + '</div>';
         });
       });
     }
@@ -7644,10 +8372,18 @@ window.renderRantaiPage = function(){
           return;
         }
         var node = chain.nodes.find(function(n){ return n.sequence === seq; });
-        if(!confirm('Ganti gardu node #' + seq + ' dari ' + (node ? node.noGardu : '-') + ' menjadi ' + garduBaru + '?\n\n' +
-                    'Trafo yang dibawa tetap sama. Gardu lama akan keluar dari rantai ini dan bisa direncanakan lagi nanti.')) return;
+        var rusakHilir = el.getAttribute('data-rusakhilir') === '1';
+        var tanya = 'Ganti gardu node #' + seq + ' dari ' + (node ? node.noGardu : '-') + ' menjadi ' + garduBaru + '?\n\n' +
+                    'Trafo yang dibawa tetap sama. Gardu lama akan keluar dari rantai ini dan bisa direncanakan lagi nanti.';
+        if(rusakHilir){
+          tanya += '\n\nPERHATIAN: node #' + el.getAttribute('data-hilirseq') + ' (' + el.getAttribute('data-hilirgardu') + ') ' +
+                   'akan jadi TIDAK SAH dengan trafo masuk yang baru —\n' + el.getAttribute('data-hiliralasan') + '\n\n' +
+                   'Node itu akan ditandai PERLU DITINJAU, bukan dihapus. Anda harus mengganti gardunya atau membatalkannya.';
+        }
+        if(!confirm(tanya)) return;
         var res = rtGantiGarduNode(data, chain, seq, garduBaru, alasan);
         if(!res.ok){ alert(res.reason); return; }
+        if(res.catatanHilir) alert(res.catatanHilir);
         ui.modal = null;
         paint();
       });
@@ -7694,7 +8430,7 @@ window.renderRantaiPage = function(){
           : { penyulang:null, lat:null, lng:null };
         var lockedForFix = rtLockedGarduSet(data, chain ? chain.id : null);
         path.forEach(function(c){ lockedForFix[c.gardu.no_gardu] = 'rencana-ini'; });
-        var fixCtx = { realIdx: rtRealisasiIndex(), locked: lockedForFix, refPenyulang: lastRef.penyulang, refLat: lastRef.lat, refLng: lastRef.lng };
+        var fixCtx = { realIdx: rtRealisasiIndex(), locked: lockedForFix, kendala: rtKendalaSet(data), refPenyulang: lastRef.penyulang, refLat: lastRef.lat, refLng: lastRef.lng };
         var fixCand = rtEvaluateCandidate(gardu, requiredDaya, fixCtx);
 
         if(!fixCand.ok){
@@ -8000,10 +8736,13 @@ window.renderRingkasanPage = function(){
   }
 
   // ---- Rantai Manajemen Trafo: jumlah rantai yang lagi AKTIF ----
-  var rtChainsAktif = 0;
+  var rtChainsAktif = 0, rtKendalaTerbuka = 0;
   try{
     var rtData = rtLoad();
     rtChainsAktif = (rtData.chains || []).filter(function(c){ return c.status === 'AKTIF'; }).length;
+    // Gardu yang kendalanya masih terbuka — sementara tidak ditawarkan saat
+    // menyusun rantai, jadi perlu terlihat di Ringkasan supaya tidak terlupa.
+    rtKendalaTerbuka = (rtData.kendala || []).filter(function(k){ return k.status !== 'SELESAI'; }).length;
   }catch(eRt){
     // Data Rantai lokal belum ada/rusak — Ringkasan tetap tampil, kartu
     // ini cuma menunjukkan 0 alih-alih menggagalkan seluruh halaman.
@@ -8026,7 +8765,8 @@ window.renderRingkasanPage = function(){
     kpiCard({ value: trBelum.length, label: 'Trafo Rusak Belum Selesai', tone: trBelum.length ? 'warn' : 'ok', page: 'traforusak', loaded: trLoaded }) +
     kpiCard({ value: lvBelum.length, label: 'LV Board Belum TL', tone: lvBelum.length ? 'warn' : 'ok', page: 'lvboard', loaded: lvLoaded }) +
     kpiCard({ value: gsBelum.length, label: 'GARSIP Belum Selesai', tone: gsBelum.length ? 'info' : 'ok', page: 'garsip', loaded: gsLoaded }) +
-    kpiCard({ value: rtChainsAktif, label: 'Rantai Sedang Aktif', tone: 'info', page: 'rantai' });
+    kpiCard({ value: rtChainsAktif, label: 'Rantai Sedang Aktif', tone: 'info', page: 'rantai' }) +
+    kpiCard({ value: rtKendalaTerbuka, label: 'Gardu Terkendala', tone: rtKendalaTerbuka ? 'warn' : 'ok', page: 'rantai' });
 
   function listPanel(title, page, items, emptyMsg, loaded){
     var bodyHtml;
@@ -8426,6 +9166,83 @@ window.renderRingkasanPage = function(){
   }
 
   /* ---------------- refresh orchestration ---------------- */
+  /* ================================================================
+     TES KONEKSI APPS SCRIPT
+     ----------------------------------------------------------------
+     "Failed to fetch" saat mengirim realisasi tidak memberi tahu apa
+     pun tentang PENYEBABNYA. Tombol ini memanggil endpoint ?ping=1
+     (lihat doGet di Code.gs) dan menerjemahkan hasilnya jadi vonis
+     yang bisa langsung ditindaklanjuti, tanpa perlu buka tab baru
+     atau membaca URL panjang di HP.
+     ================================================================ */
+  var btnTes = document.getElementById('btnTesKoneksi');
+  if(btnTes){
+    btnTes.addEventListener('click', function(){
+      if(btnTes.disabled) return;
+      btnTes.disabled = true;
+      var labelAsli = btnTes.innerHTML;
+      btnTes.textContent = 'Menguji…';
+
+      var selesai = function(pesan){
+        btnTes.disabled = false;
+        btnTes.innerHTML = labelAsli;
+        alert(pesan);
+      };
+
+      if(typeof navigator !== 'undefined' && navigator.onLine === false){
+        selesai('TIDAK ADA INTERNET\n\nPerangkat ini sedang offline. Nyalakan data/WiFi lalu tes lagi.');
+        return;
+      }
+
+      /* Batas waktu sendiri: kalau jaringan menggantung, fetch bisa
+         diam sangat lama tanpa kabar apa-apa. */
+      var sudahJawab = false;
+      var pewaktu = setTimeout(function(){
+        if(sudahJawab) return;
+        sudahJawab = true;
+        selesai('TIDAK ADA JAWABAN (lewat 20 detik)\n\n' +
+          'Apps Script tidak menjawab. Biasanya sinyal sangat lemah, atau Web App-nya sedang bermasalah. ' +
+          'Coba lagi di jaringan lain.');
+      }, 20000);
+
+      fetch(APPS_SCRIPT_URL + '?ping=1', { method:'GET' })
+        .then(function(r){ return r.text(); })
+        .then(function(teks){
+          if(sudahJawab) return; sudahJawab = true; clearTimeout(pewaktu);
+          var hasil = null;
+          try{ hasil = JSON.parse(teks); }catch(e){ /* bukan JSON */ }
+
+          if(hasil && hasil.ok){
+            selesai('KONEKSI SEHAT ✓\n\n' +
+              'Apps Script menjawab dengan normal, jadi deployment-nya tidak bermasalah.\n\n' +
+              'Kalau pengiriman realisasi tetap gagal, penyebabnya ada di UKURAN KIRIMAN: ' +
+              'foto yang diunggah terlalu besar sehingga putus di tengah jalan. ' +
+              'Kurangi jumlah/ukuran fotonya lalu kirim ulang.');
+          } else {
+            selesai('JAWABAN TIDAK DIKENALI\n\n' +
+              'Server menjawab, tapi isinya bukan balasan ping yang diharapkan — ' +
+              'biasanya ini halaman login atau halaman error Google.\n\n' +
+              'Buka Apps Script > Deploy > Manage deployments > edit (pensil) > ' +
+              'pastikan "Who has access" = Anyone > Deploy.\n\n' +
+              'Cuplikan jawaban: ' + String(teks).slice(0, 180));
+          }
+        })
+        .catch(function(err){
+          if(sudahJawab) return; sudahJawab = true; clearTimeout(pewaktu);
+          selesai('TIDAK BISA MENGHUBUNGI APPS SCRIPT ✗\n\n' +
+            'Permintaan ditolak browser sebelum sampai ke server. Penyebab paling sering, berurutan:\n\n' +
+            '1. Akses deployment bukan "Anyone". Buka Apps Script > Deploy > Manage deployments > ' +
+            'edit (pensil) > Who has access: Anyone > Deploy. Dialog deploy SERING mereset ini ke ' +
+            '"Only myself" setelah deploy ulang.\n\n' +
+            '2. URL deployment di portal sudah tidak berlaku (deployment dihapus/diarsipkan, atau ' +
+            'dibuat deployment BARU dengan URL baru). Ambil URL /exec yang berlaku lalu ganti ' +
+            'APPS_SCRIPT_URL di portal.\n\n' +
+            '3. Perangkat ini tidak ada internet.\n\n' +
+            '[pesan asli browser: ' + String(err && err.message ? err.message : err) + ']');
+        });
+    });
+  }
+
   var btn = document.getElementById('btnRefresh');
   var ico = document.getElementById('refIco');
   var lbl = document.getElementById('refLabel');
@@ -8972,7 +9789,7 @@ window.renderRingkasanPage = function(){
       })
       .catch(function(err){
         submitBtn.disabled = false;
-        setInpStatus('Gagal terkirim: ' + err.message, 'err');
+        setInpStatus(window.pesanGagalKoneksi(err, 'Gagal terkirim'), 'err');
       });
   }
 
@@ -9009,6 +9826,10 @@ window.renderRingkasanPage = function(){
     );
   }
   var PORTAL_REBUILD_TERTUNDA = false;
+  /* Halaman yang terakhir digambar — dipakai membedakan "pindah tab"
+     dari "halaman yang sama digambar ulang" (mis. setelah Perbarui
+     Data), supaya sapuan cahaya hanya muncul saat benar-benar pindah. */
+  var PORTAL_HALAMAN_TERAKHIR = null;
 
   /* Dipanggil setiap kali sebuah popup ditutup. Kalau tadi ada permintaan
      membangun ulang halaman yang sengaja ditahan, baru dijalankan sekarang. */
@@ -9034,6 +9855,8 @@ window.renderRingkasanPage = function(){
       return;
     }
     PORTAL_REBUILD_TERTUNDA = false;
+    var halamanBerganti = (PORTAL_HALAMAN_TERAKHIR !== null && PORTAL_HALAMAN_TERAKHIR !== state.activePage);
+    PORTAL_HALAMAN_TERAKHIR = state.activePage;
     try{
       if(state.activePage === 'ringkasan') window.renderRingkasanPage();
       else if(state.activePage === 'beban') window.renderBebanPage();
@@ -9048,7 +9871,39 @@ window.renderRingkasanPage = function(){
         '<div style="padding:60px 40px;font-family:\'Space Grotesk\',sans-serif;font-size:13px;color:#8A3B3B;">' +
         'Terjadi kesalahan saat memuat halaman ini. Detailnya ada di konsol peramban (F12).</div>';
     }
+    mainkanAnimasiHalaman(halamanBerganti);
   };
+
+  /* Menjalankan animasi masuk halaman. Dipanggil SESUDAH isi halaman
+     selesai dibangun, karena render mengganti seluruh isi #pageroot —
+     kelas animasinya harus dipasang pada wadah yang sudah terisi.
+
+     Kelas dilepas dulu lalu dipasang lagi (dengan satu pembacaan
+     offsetWidth di antaranya) supaya peramban menganggapnya animasi
+     baru; tanpa itu, animasi hanya jalan sekali lalu diam pada
+     perpindahan tab berikutnya.
+
+     Sapuan garis cahaya di puncak layar hanya dijalankan saat benar-benar
+     BERPINDAH tab — bukan saat "Perbarui Data" menyusun ulang halaman
+     yang sama, supaya tidak berkedip tiap kali data disegarkan. */
+  function mainkanAnimasiHalaman(halamanBerganti){
+    var kurangiGerak = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(kurangiGerak) return;
+    var root = document.getElementById('pageroot');
+    if(root){
+      root.classList.remove('page-enter');
+      void root.offsetWidth;
+      root.classList.add('page-enter');
+    }
+    if(halamanBerganti){
+      var sweep = document.getElementById('pageSweep');
+      if(sweep){
+        sweep.classList.remove('run');
+        void sweep.offsetWidth;
+        sweep.classList.add('run');
+      }
+    }
+  }
 
   /* first paint with snapshot, then attempt one live refresh */
   window.rebuildPortalPage();
