@@ -5,6 +5,18 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Manajemen Gardu — Live Dashboard</title>
+<!-- IKON TAB & LAYAR HP
+     SVG ditempel langsung sebagai data URI supaya tab tetap berikon walaupun
+     berkas gambarnya belum diunggah ke repo — sifat satu-berkas portal terjaga.
+     Tanda '#' pada kode warna WAJIB ditulis %23; kalau mentah, browser
+     menganggapnya awal fragment dan SVG-nya terpotong diam-diam.
+     PNG disertakan untuk Safari lama yang belum mendukung favicon SVG.
+     apple-touch-icon HARUS berkas sungguhan (iOS mengabaikan data URI) dan
+     dipakai saat petugas menyimpan portal ke layar depan HP. -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'> <rect width='32' height='32' rx='7' fill='%2312203A'/> <rect x='11' y='6' width='3.2' height='8' rx='1.2' fill='%23FFFFFF'/> <rect x='17.8' y='6' width='3.2' height='8' rx='1.2' fill='%23FFFFFF'/> <rect x='5.5' y='13' width='21' height='13' rx='3' fill='%23FFD23F'/> <path d='M17.6 14.8 L12.1 20.9 h3.4 l-1 4.6 l5.7 -6.3 h-3.5 z' fill='%2312203A'/></svg>">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#12203A">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
