@@ -6007,10 +6007,36 @@ function rtRequiredDaya(g){
 }
 
 /* ---------------- Manajemen rantai (chain) ---------------- */
+
+/* Tanggal hari ini dalam waktu LOKAL, bentuk YYYYMMDD.
+   Sengaja bukan toISOString() — itu waktu UTC, dan di WITA (UTC+8) rantai
+   yang dibuat sebelum pukul 08.00 pagi akan bertanggal kemarin. */
+function rtTanggalKodeHariIni(){
+  var d = new Date();
+  var p2 = function(n){ return (n < 10 ? '0' : '') + n; };
+  return '' + d.getFullYear() + p2(d.getMonth()+1) + p2(d.getDate());
+}
+
+/**
+ * ID rantai: RM-{petugas}-{YYYYMMDD}-{nnn}, mis. RM-CSJ-20261013-004.
+ *
+ * Tanggal di sini adalah tanggal DIBUAT, dan nilainya tidak pernah berubah
+ * seumur hidup rantai. Itu disengaja: chain.id bukan sekadar nama, tapi
+ * KUNCI yang dipakai mencocokkan data di beberapa tempat — penandaan node
+ * SELESAI setelah realisasi dikirim, penguncian gardu antar rantai, dan
+ * catatan Kendala Manajemen yang menyimpan chainId. Kalau ID ikut berubah
+ * tiap kali disimpan, realisasi yang sudah terkirim gagal menandai nodenya
+ * SELESAI tanpa pesan error apa pun, dan catatan kendala jadi yatim.
+ * Tanggal "terakhir diubah" karena itu ditampilkan terpisah (chain.updatedAt),
+ * tidak dijahit ke dalam ID.
+ *
+ * Nomor urut tetap berjalan global per vendor, TIDAK direset harian — supaya
+ * keunikan ID tidak bergantung pada benar-tidaknya jam perangkat petugas.
+ */
 function rtNextChainId(data, petugas){
   var n = (data.seq[petugas] || 0) + 1;
   data.seq[petugas] = n;
-  return 'RM-' + petugas + '-' + rtPad3(n);
+  return 'RM-' + petugas + '-' + rtTanggalKodeHariIni() + '-' + rtPad3(n);
 }
 function rtActiveChain(data, petugas){
   // "Aktif" di sini berarti belum final (bukan SELESAI/DIBATALKAN).
@@ -6778,6 +6804,14 @@ function rtBuildSpkHtml(data, filters){
   var rantaiIds = [];
   rows.forEach(function(r){ if(rantaiIds.indexOf(r.chain.id) === -1) rantaiIds.push(r.chain.id); });
 
+  /* Kalau lembar ini hanya memuat satu rantai, tanggal terakhir rencananya
+     diubah ikut dicetak — supaya vendor yang memegang cetakan lama tahu
+     rencananya sudah bergerak, bukan cuma tahu kapan kertasnya dicetak. */
+  var rantaiLabel = rantaiIds.join(', ') || '\u2013';
+  if (rows.length && rantaiIds.length === 1 && rows[0].chain && rows[0].chain.updatedAt) {
+    rantaiLabel += ' (diubah ' + rtFmtDT(rows[0].chain.updatedAt) + ')';
+  }
+
   /* Tabel JADWAL KERJA LAPANGAN — kolomnya dibuat persis sama dengan sheet
      jadwal kerja lapangan yang dipakai ULP (NO, Tanggal Pelaksanaan,
      Penyulang, Section Jaringan, Kategori, Deskripsi Kegiatan, Vendor,
@@ -6872,7 +6906,7 @@ function rtBuildSpkHtml(data, filters){
     '<tr><td>Pelaksana / Vendor</td><td>' + esc(namaVendor) + '</td>' +
         '<td style="color:#4B5768;width:120px;">Jumlah lokasi</td><td style="font-weight:700;">' + rows.length + ' lokasi</td></tr>' +
     '<tr><td>Tanggal cetak</td><td>' + esc(tanggalCetak) + '</td>' +
-        '<td style="color:#4B5768;">Rantai</td><td style="font-weight:700;">' + esc(rantaiIds.join(', ') || '–') + '</td></tr>' +
+        '<td style="color:#4B5768;">Rantai</td><td style="font-weight:700;">' + esc(rantaiLabel) + '</td></tr>' +
     '</table>' +
     '<table class="data jadwal" style="margin-top:6mm;"><thead><tr>' +
     '<th style="width:26px;">NO</th><th style="width:96px;">Penyulang</th>' +
@@ -7063,6 +7097,7 @@ window.PORTAL_CSS_RANTAI = "\n" +
 ".rt-kd-meta{font-size:10px;color:var(--text-faint);line-height:1.55;margin-bottom:9px;}\n" +
 ".rt-kd-done{font-size:11px;font-weight:700;color:var(--aman);}\n" +
 "@media (max-width:720px){.rt-kd-item .actions{flex-wrap:wrap;}}\n" +
+".rt-chaintgl{margin-top:3px;font-size:10.5px;font-weight:600;color:var(--text-faint);}\n" +
 ".rt-node-ganti{margin:8px 0 0;padding:8px 10px;background:#FFF6E8;border:1px solid #F0D8B0;border-radius:9px;font-size:11px;font-weight:600;color:#7A5320;line-height:1.55;}\n" +
 /* --- Ganti Gardu: band kegentingan, dampak node hilir, node perlu tinjau --- */
 ".rt-band{display:flex;align-items:center;gap:8px;margin:14px 0 7px;font-size:10.5px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;color:var(--text-dim);}\n" +
@@ -7451,7 +7486,12 @@ window.renderRantaiPage = function(){
 
     return '<div class="panel">' +
       '<div class="rt-chainhead">' +
-      '<div><div class="id">' + chain.id + '</div><div class="sub">Petugas ' + esc(namaP) + ' \u00b7 Trafo modal awal ' + rtFmtKva(chain.trafoModal.daya) + '</div></div>' +
+      '<div><div class="id">' + chain.id + '</div><div class="sub">Petugas ' + esc(namaP) + ' \u00b7 Trafo modal awal ' + rtFmtKva(chain.trafoModal.daya) + '</div>' +
+      // Tanggal ditaruh di sebelah nama, BUKAN dijahit ke dalam ID: ID adalah
+      // kunci pencocokan data, jadi tidak boleh ikut berubah tiap disimpan.
+      '<div class="rt-chaintgl">Dibuat ' + rtFmtDT(chain.createdAt) +
+        (chain.updatedAt && chain.updatedAt !== chain.createdAt ? (' \u00b7 terakhir diubah ' + rtFmtDT(chain.updatedAt)) : '') +
+      '</div></div>' +
       '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' +
       '<span class="rt-badge ' + statusMeta[1] + '">' + statusMeta[0] + '</span>' +
       (chain.status !== 'DIBATALKAN' && chain.status !== 'SELESAI' ? '<button class="btn small danger" data-act="cancel">Batalkan</button>' : '') +
@@ -7498,6 +7538,7 @@ window.renderRantaiPage = function(){
         '<td>' + c.nodes.length + '</td>' +
         '<td>' + rtFmtKva(c.currentTransformer.daya) + ' (' + esc(c.currentTransformer.status||'\u2013') + ')</td>' +
         '<td><span class="rt-badge ' + sm[1] + '">' + sm[0] + '</span></td>' +
+        '<td>' + rtFmtDT(c.createdAt) + '</td>' +
         '<td>' + rtFmtDT(c.updatedAt) + '</td>' +
         '</tr>';
     }).join('');
@@ -7506,7 +7547,7 @@ window.renderRantaiPage = function(){
       '<h3>Semua Rantai</h3>' +
       '<div class="desc">Termasuk yang sudah terputus/selesai/dibatalkan \u2014 histori tidak pernah dihapus.</div>' +
       (all.length ? ('<div class="table-scroll"><table class="data"><thead><tr>' +
-        '<th>ID Rantai</th><th>Petugas</th><th>Trafo Modal</th><th>Jml Node</th><th>Trafo Terakhir</th><th>Status</th><th>Diperbarui</th>' +
+        '<th>ID Rantai</th><th>Petugas</th><th>Trafo Modal</th><th>Jml Node</th><th>Trafo Terakhir</th><th>Status</th><th>Dibuat</th><th>Diperbarui</th>' +
         '</tr></thead><tbody>' + rows + '</tbody></table></div>')
         : '<div class="empty-state">Belum ada rantai yang cocok dengan filter.</div>') +
       '</div>';
@@ -8923,10 +8964,31 @@ window.renderRingkasanPage = function(){
      (ganti perangkat, cache peramban dibersihkan) atau kalau ada
      perubahan salah yang mau dibatalkan dengan kembali ke versi di
      Sheets. Mengembalikan objek data rantai, atau melempar error. */
+  /* Satu sel Google Sheets dibatasi 50.000 karakter, dan data rantai yang
+     makin banyak sudah mendekati batas itu. Karena itu Code.gs sekarang
+     memecah JSON ke beberapa kolom (B, C, D, ...) dalam baris yang sama,
+     tiap potongan diawali tanda '~' supaya Sheets tidak pernah salah
+     mengira isinya rumus (potongan ke-2 dan seterusnya mulai di tengah
+     teks, bisa saja diawali '=' atau '-').
+
+     Fungsi ini menyatukannya kembali. Baris LAMA yang JSON-nya masih utuh
+     di satu sel tetap terbaca: potongannya cuma satu dan tanpa tanda '~'. */
+  function gabungPotonganJson(baris){
+    if(!baris) return null;
+    var hasil = '';
+    for(var i=1;i<baris.length;i++){
+      var v = baris[i];
+      if(v === null || v === undefined || v === '') continue;
+      var t = String(v);
+      hasil += (t.charAt(0) === '~') ? t.slice(1) : t;
+    }
+    return hasil || null;
+  }
+
   window.portalFetchRantaiSnapshot = function(){
     return loadSheet(TAB_RANTAI).then(function(table){
       var rows = cells(table);
-      var json = (rows.length && rows[0][1]) ? rows[0][1] : null;
+      var json = rows.length ? gabungPotonganJson(rows[0]) : null;
       if(!json) throw new Error('Tab "' + TAB_RANTAI + '" ada tapi belum berisi snapshot rantai.');
       var parsed = JSON.parse(json);
       if(!parsed || !parsed.chains || !parsed.trafoModal){
@@ -8939,15 +9001,37 @@ window.renderRingkasanPage = function(){
   /* Daftar versi snapshot yang tersimpan di tab RANTAI MANAJEMEN (baris
      riwayat yang ditulis handleSaveRantai_ — kolom A tanggal, kolom B
      JSON). Baris pertama = versi aktif, sisanya riwayat terbaru dulu. */
+  /* Kolom "Terakhir Disimpan" di sheet berisi sel TANGGAL. Lewat gviz, sel
+     tanggal datang sebagai teks mentah "Date(2026,9,9,10,24,8)" pada c.v —
+     dan helper cells() di atas memang hanya mengambil c.v, bukan c.f (nilai
+     terformat). Akibatnya label versi tampil sebagai Date(...) yang tidak
+     terbaca orang. Di sini teks itu diterjemahkan kembali jadi tanggal
+     normal. Catatan: bulan pada format gviz dimulai dari 0, jadi 9 = Oktober. */
+  function labelTanggalVersi(nilai, nomorUrut){
+    if(nilai === null || nilai === undefined || nilai === '') return 'Versi ' + nomorUrut;
+    var teks = String(nilai).trim();
+    var m = teks.match(/^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?\)$/);
+    if(m){
+      var d = new Date(+m[1], +m[2], +m[3], +(m[4]||0), +(m[5]||0), +(m[6]||0));
+      if(!isNaN(d.getTime())) return rtFmtDT(d.toISOString());
+    }
+    // Sudah berupa teks tanggal biasa (mis. kalau selnya bertipe teks) —
+    // dicoba diseragamkan, kalau gagal dipakai apa adanya.
+    var d2 = new Date(teks.replace(' ', 'T'));
+    if(!isNaN(d2.getTime())) return rtFmtDT(d2.toISOString());
+    return teks;
+  }
+
   window.portalFetchRantaiVersions = function(){
     return loadSheet(TAB_RANTAI).then(function(table){
       var rows = cells(table);
       var out = [];
       rows.forEach(function(r, i){
-        if(!r || !r[1]) return;
-        var info = { index:i, label:String(r[0] || ('Versi ' + (i+1))), json:r[1], chains:null };
+        var gabungan = gabungPotonganJson(r);
+        if(!gabungan) return;
+        var info = { index:i, label:labelTanggalVersi(r[0], i+1), json:gabungan, chains:null };
         try{
-          var p = JSON.parse(r[1]);
+          var p = JSON.parse(gabungan);
           info.chains = (p && p.chains) ? p.chains.length : null;
           info.data = p;
         }catch(e){ info.data = null; }
